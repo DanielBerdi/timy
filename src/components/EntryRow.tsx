@@ -1,6 +1,6 @@
 "use client";
 import TimeInput from "@/components/TimeInput";
-import type { Entry, Project } from "@/lib/client";
+import { projectLabel, type Entry, type Project } from "@/lib/client";
 import { durationBetween, endTime, formatDuration, money, parseDuration } from "@/lib/time";
 
 type Props = {
@@ -28,9 +28,9 @@ export default function EntryRow({ e, projects, patch, del, detailed, onError }:
           {!inList && <option value={e.project_id}>{detailed ? e.project_name : `${e.customer_name} / ${e.project_name}`}</option>}
           {detailed
             ? customers.map(([cid, cname]) => (
-                <optgroup key={cid} label={cname}>{projects.filter((p) => p.customer_id === cid).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>
+                <optgroup key={cid} label={cname}>{projects.filter((p) => p.customer_id === cid).map((p) => <option key={p.id} value={p.id}>{p.favorite ? "★ " : ""}{p.name}</option>)}</optgroup>
               ))
-            : projects.map((p) => <option key={p.id} value={p.id}>{p.customer_name} / {p.name}</option>)}
+            : projects.map((p) => <option key={p.id} value={p.id}>{projectLabel(p)}</option>)}
         </select>
       </td>
       <td className="min-w-64 p-1"><input key={e.description} className="cell" defaultValue={e.description} placeholder="Description" onBlur={(ev) => ev.target.value !== e.description && patch(e.id, { description: ev.target.value })} /></td>

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import TimeInput from "@/components/TimeInput";
-import { api, ApiError, lastProject, rememberProject, type Entry, type Project, useApi, useProjects } from "@/lib/client";
+import { api, ApiError, lastProject, projectLabel, rememberProject, type Entry, type Project, useApi, useProjects } from "@/lib/client";
 import { addDays, addMonths, dow, durationBetween, endTime, endOfMonth, formatDate, formatDuration, layoutOverlaps, minToTime, monthGrid, parseDuration, rangeFromDrag, startOfMonth, startOfWeek, timeToMin, today, weekDays } from "@/lib/time";
 
 const H0 = 0, H1 = 24, HOUR_PX = 48, FOCUS_HOUR = 9.5; // full day; initial scroll puts ~10:00–20:00 in view
@@ -70,7 +70,7 @@ function WeekGrid({ days, entries, onSlot, onRange, onEntry }: { days: string[];
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => { if (scroller.current) scroller.current.scrollTop = (FOCUS_HOUR - H0) * HOUR_PX; }, [days[0]]);
   return (
-    <div ref={scroller} className="card max-h-[calc(100vh-190px)] min-h-[360px] overflow-auto">
+    <div ref={scroller} className="card h-[calc(100vh-180px)] min-h-[420px] overflow-auto">
       <div className="grid min-w-[800px]" style={{ gridTemplateColumns: "48px repeat(7, 1fr)" }}>
         <div className="sticky top-0 z-20 bg-white" />
         {days.map((d) => (
@@ -189,7 +189,7 @@ function MonthGrid({ anchor, entries, onDay, onEntry }: { anchor: string; entrie
           const es = entries.filter((e) => e.date === d);
           const total = es.reduce((s, e) => s + e.duration_min, 0);
           return (
-            <div key={d} className={`min-h-28 cursor-pointer border-l border-t border-slate-200 p-1 ${d.startsWith(month) ? "" : "bg-slate-50 text-slate-400"} ${dow(d) === 6 ? "bg-slate-50/60" : ""}`} onClick={() => onDay(d)}>
+            <div key={d} className={`min-h-[max(7rem,calc((100vh-250px)/6))] cursor-pointer border-l border-t border-slate-200 p-1 ${d.startsWith(month) ? "" : "bg-slate-50 text-slate-400"} ${dow(d) === 6 ? "bg-slate-50/60" : ""}`} onClick={() => onDay(d)}>
               <div className="flex justify-between"><span className={d === today() ? "rounded-full bg-indigo-600 px-1.5 text-[#fff]" : ""}>{Number(d.slice(8))}</span>{total > 0 && <span className="text-slate-500">{formatDuration(total)}</span>}</div>
               <div className="mt-1 space-y-0.5">{es.slice(0, 4).map((e) => <Chip key={e.id} e={e} onClick={() => onEntry(e)} />)}{es.length > 4 && <div className="px-1 text-slate-400">+{es.length - 4} more</div>}</div>
             </div>
@@ -232,7 +232,7 @@ function EntryModal({ draft, projects, onClose, onSaved }: { draft: Draft; proje
           <select className="input" value={d.project} onChange={(e) => set("project", e.target.value)}>
             <option value="">Select…</option>
             {d.project && !projects.some((p) => String(p.id) === d.project) && <option value={d.project}>(archived project)</option>}
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.customer_name} / {p.name}</option>)}
+            {projects.map((p) => <option key={p.id} value={p.id}>{projectLabel(p)}</option>)}
           </select></div>
         <div><label className="label">Description</label><input className="input" value={d.description} onChange={(e) => set("description", e.target.value)} /></div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -300,7 +300,7 @@ function ImportPanel({ from, to, projects, onClose, onImported }: { from: string
             {!events.length && <p className="p-3 text-sm text-slate-400">No timed events in this range.</p>}
           </div>
           <div><label className="label">Add selected events to project</label>
-            <select className="input" value={project} onChange={(e) => setProject(e.target.value)}><option value="">Select…</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.customer_name} / {p.name}</option>)}</select></div>
+            <select className="input" value={project} onChange={(e) => setProject(e.target.value)}><option value="">Select…</option>{projects.map((p) => <option key={p.id} value={p.id}>{projectLabel(p)}</option>)}</select></div>
           {msg && <p className="text-sm text-green-700">{msg}</p>}
           <button className="btn btn-primary" disabled={!project || !picked.size} onClick={doImport}>Import {picked.size} event{picked.size === 1 ? "" : "s"}</button>
         </div>

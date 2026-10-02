@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { api, lastProject, rememberProject, type Entry, useProjects } from "@/lib/client";
+import { api, lastProject, projectLabel, rememberProject, type Entry, useProjects } from "@/lib/client";
 
 function elapsed(since: string) {
   const s = Math.max(0, Math.floor((Date.now() - Date.parse(since)) / 1000));
@@ -48,7 +48,7 @@ export default function TimerBar() {
       <input className="input w-40" placeholder="What are you doing?" value={desc} onChange={(e) => setDesc(e.target.value)} />
       <select className="input w-48" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
         <option value="">Project…</option>
-        {projects?.filter((p) => !p.archived).map((p) => <option key={p.id} value={p.id}>{p.customer_name} / {p.name}</option>)}
+        {projects?.filter((p) => !p.archived).map((p) => <option key={p.id} value={p.id}>{projectLabel(p)}</option>)}
       </select>
       <button className="btn btn-primary" disabled={!projectId} onClick={start}>Start</button>
     </div>

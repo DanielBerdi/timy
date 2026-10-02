@@ -5,7 +5,7 @@ export type Currency = "USD" | "ILS";
 export type Customer = { id: number; name: string; email: string | null; notes: string | null; currency: Currency; rate: number | null; archived: number };
 export type Project = {
   id: number; customer_id: number; customer_name: string; name: string; rate: number | null; currency: Currency | null;
-  billable: number; color: string; archived: number; effective_rate: number | null; effective_currency: Currency;
+  billable: number; color: string; archived: number; favorite: number; effective_rate: number | null; effective_currency: Currency;
 };
 export type Entry = {
   id: number; project_id: number; project_name: string; color: string; customer_id: number; customer_name: string;
@@ -43,7 +43,13 @@ export function useApi<T>(url: string | null) {
 }
 
 export function useCustomers() { return useApi<Customer[]>("/api/customers"); }
-export function useProjects() { return useApi<Project[]>("/api/projects"); }
+export function useProjects() {
+  const r = useApi<Project[]>("/api/projects");
+  const { reload } = r;
+  // Other components (e.g. the Projects page) announce changes so every dropdown stays current.
+  useEffect(() => { window.addEventListener("projects-changed", reload); return () => window.removeEventListener("projects-changed", reload); }, [reload]);
+  return r;
+}
 
 /** Sum amounts per currency. */
 export function totalsByCurrency(entries: Entry[]): Record<string, number> {
@@ -58,4 +64,9 @@ export function lastProject(): string {
 }
 export function rememberProject(id: string | number) {
   try { localStorage.setItem("lastProject", String(id)); } catch {}
+}
+
+/** "Customer / Project", with a star for favourites. */
+export function projectLabel(p: Pick<Project, "customer_name" | "name" | "favorite">): string {
+  return `${p.favorite ? "★ " : ""}${p.customer_name} / ${p.name}`;
 }

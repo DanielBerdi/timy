@@ -4,7 +4,7 @@ import { projectCreate } from "@/lib/schemas";
 
 export const dynamic = "force-dynamic";
 
-export const GET = route(() => db.all(`${PROJECT_SELECT} ORDER BY p.archived, c.name COLLATE NOCASE, p.name COLLATE NOCASE`));
+export const GET = route(() => db.all(`${PROJECT_SELECT} ORDER BY p.archived, p.favorite DESC, c.name COLLATE NOCASE, p.name COLLATE NOCASE`));
 
 export const POST = route(async (req) => {
   const d = projectCreate.parse(await req.json());

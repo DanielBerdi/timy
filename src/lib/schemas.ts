@@ -31,7 +31,7 @@ export const projectCreate = projectShape.extend({
   billable: z.boolean().default(true),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#6366f1"),
 });
-export const projectUpdate = projectShape.omit({ customer_id: true }).partial().extend({ archived: z.boolean().optional() });
+export const projectUpdate = projectShape.omit({ customer_id: true }).partial().extend({ archived: z.boolean().optional(), favorite: z.boolean().optional() });
 
 const entryShape = z.object({
   project_id: z.number().int(),

@@ -4,7 +4,7 @@ import { projectUpdate } from "@/lib/schemas";
 
 export const PATCH = route<{ id: string }>(async (req, p) => {
   const id = idOf(p);
-  const { sql, params } = setClause(projectUpdate.parse(await req.json()), ["name", "rate", "currency", "billable", "color", "archived"]);
+  const { sql, params } = setClause(projectUpdate.parse(await req.json()), ["name", "rate", "currency", "billable", "color", "archived", "favorite"]);
   if (!(await db.run(`UPDATE projects SET ${sql} WHERE id = @id`, { ...params, id } as never)).changes) throw new HttpError(404, "Not found");
   return db.get(`${PROJECT_SELECT} WHERE p.id = ?`, [id]);
 });

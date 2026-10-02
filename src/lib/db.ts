@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS projects (
   currency TEXT CHECK (currency IN ('USD','ILS')),  -- only used when rate is set; NULL = customer currency
   billable INTEGER NOT NULL DEFAULT 1,
   color TEXT NOT NULL DEFAULT '#6366f1',
+  favorite INTEGER NOT NULL DEFAULT 0,
   archived INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -67,11 +68,17 @@ function queries(x: Client | Transaction): Q {
 
 const g = globalThis as unknown as { __db?: { client: Client; ready: Promise<void> } };
 
+/** Adds columns introduced after the first release to databases created earlier. */
+async function migrate(client: Client) {
+  const cols = (await client.execute("PRAGMA table_info(projects)")).rows.map((r) => String(r[1]));
+  if (!cols.includes("favorite")) await client.execute("ALTER TABLE projects ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0");
+}
+
 function conn() {
   if (!g.__db) {
     const url = process.env.TURSO_DATABASE_URL ?? process.env.DATABASE_URL ?? "file:./data/timy.db";
     const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
-    g.__db = { client, ready: client.executeMultiple(SCHEMA) };
+    g.__db = { client, ready: client.executeMultiple(SCHEMA).then(() => migrate(client)) };
   }
   return g.__db;
 }

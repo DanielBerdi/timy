@@ -12,7 +12,7 @@ export default function Projects() {
   const [err, setErr] = useState("");
 
   async function run(fn: () => Promise<unknown>) {
-    try { setErr(""); await fn(); await reload(); } catch (e) { setErr((e as Error).message); }
+    try { setErr(""); await fn(); await reload(); window.dispatchEvent(new Event("projects-changed")); } catch (e) { setErr((e as Error).message); }
   }
   const patch = (id: number, body: object) => run(() => api(`/api/projects/${id}`, "PATCH", body));
   const add = () => run(async () => { await api("/api/projects", "POST", { customer_id: Number(customerId), name }); setName(""); });
@@ -38,13 +38,13 @@ export default function Projects() {
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="border-b border-slate-200 text-left text-xs text-slate-500">
-            <tr><th className="p-2">Customer</th><th className="p-2">Project</th><th className="p-2">Color</th><th className="p-2">Rate override</th><th className="p-2">Effective</th><th className="p-2">Billable</th><th className="p-2" /></tr>
+            <tr><th className="w-8 p-2" title="Favorites are listed first everywhere" /><th className="p-2">Customer</th><th className="p-2">Project</th><th className="p-2">Color</th><th className="p-2">Rate override</th><th className="p-2">Effective</th><th className="p-2">Billable</th><th className="p-2" /></tr>
           </thead>
           <tbody>{rows.map((p) => <Row key={p.id} p={p} patch={patch} del={() => run(() => api(`/api/projects/${p.id}`, "DELETE"))} />)}
-            {rows.length === 0 && <tr><td colSpan={7} className="p-4 text-center text-slate-400">No projects.</td></tr>}</tbody>
+            {rows.length === 0 && <tr><td colSpan={8} className="p-4 text-center text-slate-400">No projects.</td></tr>}</tbody>
         </table>
       </div>
-      <p className="text-xs text-slate-500">Leave the override empty to use the customer&apos;s rate and currency.</p>
+      <p className="text-xs text-slate-500">Leave the override empty to use the customer&apos;s rate and currency. ★ Favorite projects are listed first in every dropdown.</p>
     </div>
   );
 }
@@ -52,6 +52,10 @@ export default function Projects() {
 function Row({ p, patch, del }: { p: Project; patch: (id: number, b: object) => void; del: () => void }) {
   return (
     <tr className={`border-b border-slate-100 ${p.archived ? "opacity-50" : ""}`}>
+      <td className="w-8 p-1 text-center">
+        <button className={`text-lg leading-none ${p.favorite ? "text-amber-400" : "text-slate-300 hover:text-amber-400"}`} title={p.favorite ? "Remove from favorites" : "Add to favorites"} aria-pressed={!!p.favorite}
+          onClick={() => patch(p.id, { favorite: !p.favorite })}>{p.favorite ? "★" : "☆"}</button>
+      </td>
       <td className="p-2 text-slate-600">{p.customer_name}</td>
       <td className="p-1"><input className="cell" defaultValue={p.name} onBlur={(e) => { if (e.target.value.trim() && e.target.value !== p.name) patch(p.id, { name: e.target.value }); }} /></td>
       <td className="p-1"><input type="color" className="h-7 w-10 cursor-pointer" defaultValue={p.color} onBlur={(e) => e.target.value !== p.color && patch(p.id, { color: e.target.value })} /></td>

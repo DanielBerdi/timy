@@ -2,8 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 import EntryRow from "@/components/EntryRow";
 import TimeInput from "@/components/TimeInput";
-import { api, lastProject, rememberProject, type Entry, type Project, totalsByCurrency, useApi, useProjects } from "@/lib/client";
-import { durationBetween, addDays, addMonths, endOfMonth, formatDate, formatDuration, money, parseDuration, startOfMonth, startOfWeek, today } from "@/lib/time";
+import { api, lastProject, projectLabel, rememberProject, type Entry, type Project, totalsByCurrency, useApi, useProjects } from "@/lib/client";
+import { addDays, durationBetween, endTime, addMonths, endOfMonth, formatDate, formatDuration, money, parseDuration, startOfMonth, startOfWeek, today } from "@/lib/time";
 
 type Mode = "week" | "month" | "custom";
 
@@ -117,27 +117,54 @@ function NewRow({ projects, defaultDate, onAdd }: { projects: Project[]; default
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [dur, setDur] = useState("");
+  const [hint, setHint] = useState("");
   useEffect(() => setDate(defaultDate), [defaultDate]);
   useEffect(() => { const l = lastProject(); if (l && projects.some((p) => String(p.id) === l)) setProject((cur) => cur || l); }, [projects]);
-  const fromTo = start && end ? durationBetween(start, end) : null;
-  const minutes = dur.trim() ? parseDuration(dur) : fromTo;
+
+  // From / To / Duration stay in sync: fill any two and the third is calculated.
+  const changeStart = (v: string) => {
+    setHint(""); setStart(v);
+    const m = parseDuration(dur);
+    if (v && end) {
+      const d = durationBetween(v, end);
+      if (d !== null) setDur(formatDuration(d)); else { setHint("End must be after the start"); }
+    } else if (v && m !== null) setEnd(endTime(v, m));
+  };
+  const changeEnd = (v: string) => {
+    setHint("");
+    if (v && start) {
+      const d = durationBetween(start, v);
+      if (d === null) { setHint("End must be after the start"); return false; }
+      setDur(formatDuration(d));
+    }
+    setEnd(v);
+  };
+  const changeDur = (v: string) => {
+    setHint(""); setDur(v);
+    const m = parseDuration(v);
+    if (start && m !== null && m <= 1440) setEnd(endTime(start, m));
+  };
+
+  const minutes = parseDuration(dur);
   const valid = !!project && minutes !== null && minutes <= 1440;
   function submit() {
     if (!valid) return;
     rememberProject(project);
     onAdd({ project_id: Number(project), date, start_time: start || null, duration_min: minutes, description: desc });
-    setDesc(""); setDur(""); setStart(""); setEnd("");
+    setDesc(""); setDur(""); setStart(""); setEnd(""); setHint("");
   }
   const key = (e: React.KeyboardEvent) => e.key === "Enter" && submit();
   return (
     <tr className="bg-indigo-50/40">
       <td className="p-1"><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} onKeyDown={key} /></td>
-      <td className="p-1"><select className="input" value={project} onChange={(e) => setProject(e.target.value)}><option value="">Project…</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.customer_name} / {p.name}</option>)}</select></td>
+      <td className="p-1"><select className="input" value={project} onChange={(e) => setProject(e.target.value)}><option value="">Project…</option>{projects.map((p) => <option key={p.id} value={p.id}>{projectLabel(p)}</option>)}</select></td>
       <td className="p-1"><input className="input" placeholder="Description" value={desc} onChange={(e) => setDesc(e.target.value)} onKeyDown={key} /></td>
-      <td className="p-1"><TimeInput className="input" value={start} onCommit={setStart} /></td>
-      <td className="p-1"><TimeInput className="input" value={end} onCommit={setEnd} /></td>
-      <td className="p-1"><input className="input font-mono" placeholder={fromTo ? formatDuration(fromTo) : "1:30 / 1.5"} value={dur} onChange={(e) => setDur(e.target.value)} onKeyDown={key} /></td>
-      <td colSpan={3} className="p-1"><button className="btn btn-primary" disabled={!valid} onClick={submit}>Add</button></td>
+      <td className="p-1"><TimeInput className="input" value={start} onCommit={changeStart} /></td>
+      <td className="p-1"><TimeInput className="input" value={end} onCommit={changeEnd} /></td>
+      <td className="p-1"><input className="input w-20 font-mono tabular-nums" placeholder="0:00" value={dur} onChange={(e) => changeDur(e.target.value)} onKeyDown={key} /></td>
+      <td colSpan={3} className="p-1">
+        <div className="flex items-center gap-2"><button className="btn btn-primary" disabled={!valid} onClick={submit}>Add</button>{hint && <span className="text-xs text-red-600">{hint}</span>}</div>
+      </td>
     </tr>
   );
 }
