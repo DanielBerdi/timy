@@ -1,6 +1,4 @@
-import Database from "better-sqlite3";
-import fs from "node:fs";
-import path from "node:path";
+import { createClient, type Client, type InValue, type Transaction } from "@libsql/client";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS customers (
@@ -41,27 +39,76 @@ CREATE INDEX IF NOT EXISTS idx_projects_customer ON projects(customer_id);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 `;
 
-const g = globalThis as unknown as { __db?: Database.Database };
+type Args = Record<string, InValue> | InValue[];
+type Row = Record<string, unknown>;
 
-export function db(): Database.Database {
+/** Query helpers shared by the client and transactions; rows come back as plain objects. */
+export type Q = {
+  all<T = Row>(sql: string, args?: Args): Promise<T[]>;
+  get<T = Row>(sql: string, args?: Args): Promise<T | undefined>;
+  run(sql: string, args?: Args): Promise<{ changes: number; lastInsertRowid: number }>;
+};
+
+function queries(x: Client | Transaction): Q {
+  const exec = async (sql: string, args: Args = []) => x.execute({ sql, args });
+  const all = async <T,>(sql: string, args?: Args) => {
+    const rs = await exec(sql, args);
+    return rs.rows.map((r) => Object.fromEntries(rs.columns.map((c, i) => [c, r[i]]))) as T[];
+  };
+  return {
+    all,
+    get: async <T,>(sql: string, args?: Args) => (await all<T>(sql, args))[0],
+    run: async (sql, args) => {
+      const rs = await exec(sql, args);
+      return { changes: rs.rowsAffected, lastInsertRowid: Number(rs.lastInsertRowid ?? 0) };
+    },
+  };
+}
+
+const g = globalThis as unknown as { __db?: { client: Client; ready: Promise<void> } };
+
+function conn() {
   if (!g.__db) {
-    const file = process.env.DATABASE_PATH ?? "./data/timy.db";
-    if (file !== ":memory:") fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
-    const d = new Database(file);
-    d.pragma("journal_mode = WAL");
-    d.pragma("foreign_keys = ON");
-    d.exec(SCHEMA);
-    g.__db = d;
+    const url = process.env.TURSO_DATABASE_URL ?? process.env.DATABASE_URL ?? "file:./data/timy.db";
+    const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
+    g.__db = { client, ready: client.executeMultiple(SCHEMA) };
   }
   return g.__db;
 }
 
-export function getSetting(key: string): string | undefined {
-  return (db().prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined)?.value;
+async function ready(): Promise<Client> {
+  const { client, ready } = conn();
+  await ready;
+  return client;
 }
 
-export function setSetting(key: string, value: string) {
-  db().prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+export const db: Q = {
+  all: async (sql, args) => queries(await ready()).all(sql, args),
+  get: async (sql, args) => queries(await ready()).get(sql, args),
+  run: async (sql, args) => queries(await ready()).run(sql, args),
+};
+
+/** Runs `fn` in a write transaction; commits on success, rolls back on error. */
+export async function tx<T>(fn: (q: Q) => Promise<T>): Promise<T> {
+  const t = await (await ready()).transaction("write");
+  try {
+    const r = await fn(queries(t));
+    await t.commit();
+    return r;
+  } catch (e) {
+    await t.rollback();
+    throw e;
+  } finally {
+    t.close();
+  }
+}
+
+export async function getSetting(key: string): Promise<string | undefined> {
+  return (await db.get<{ value: string }>("SELECT value FROM settings WHERE key = ?", [key]))?.value;
+}
+
+export async function setSetting(key: string, value: string) {
+  await db.run("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [key, value]);
 }
 
 /**

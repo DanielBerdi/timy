@@ -24,7 +24,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const ok = profile?.email_verified === true && profile.email?.toLowerCase() === ALLOWED_EMAIL;
       if (ok && account?.refresh_token) {
         // Kept server-side (not in the browser cookie) and used to read Google Calendar.
-        setSetting("google_refresh_token", account.refresh_token);
+        await setSetting("google_refresh_token", account.refresh_token);
       }
       return ok;
     },

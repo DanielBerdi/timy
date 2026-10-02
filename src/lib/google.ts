@@ -6,7 +6,7 @@ let cached: { token: string; exp: number } | null = null;
 
 async function accessToken(): Promise<string> {
   if (cached && cached.exp > Date.now() + 30_000) return cached.token;
-  const refresh = getSetting("google_refresh_token");
+  const refresh = await getSetting("google_refresh_token");
   if (!refresh) throw new HttpError(412, "Google Calendar is not connected. Sign out and sign in again.", "not_connected");
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",

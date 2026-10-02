@@ -12,13 +12,13 @@ export const GET = route((req) => {
   if (q.get("to")) { where.push("e.date <= @to"); params.to = q.get("to")!; }
   if (q.get("project_id")) { where.push("e.project_id = @project_id"); params.project_id = Number(q.get("project_id")); }
   if (q.get("customer_id")) { where.push("c.id = @customer_id"); params.customer_id = Number(q.get("customer_id")); }
-  return db().prepare(`${ENTRY_SELECT} ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY e.date, e.start_time IS NULL, e.start_time, e.id`).all(params);
+  return db.all(`${ENTRY_SELECT} ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY e.date, e.start_time IS NULL, e.start_time, e.id`, params);
 });
 
 export const POST = route(async (req) => {
   const d = entryCreate.parse(await req.json());
-  if (!db().prepare("SELECT 1 FROM projects WHERE id = ?").get(d.project_id)) throw new HttpError(400, "Unknown project");
-  const r = db().prepare("INSERT INTO entries (project_id, date, start_time, duration_min, description, billable) VALUES (@project_id, @date, @start_time, @duration_min, @description, @billable)")
-    .run({ ...d, billable: d.billable ? 1 : 0 });
-  return db().prepare(`${ENTRY_SELECT} WHERE e.id = ?`).get(r.lastInsertRowid);
+  if (!(await db.get("SELECT 1 FROM projects WHERE id = ?", [d.project_id]))) throw new HttpError(400, "Unknown project");
+  const r = await db.run("INSERT INTO entries (project_id, date, start_time, duration_min, description, billable) VALUES (@project_id, @date, @start_time, @duration_min, @description, @billable)",
+    { ...d, billable: d.billable ? 1 : 0 });
+  return db.get(`${ENTRY_SELECT} WHERE e.id = ?`, [r.lastInsertRowid]);
 });

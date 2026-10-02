@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-export const GET = route((req) => {
+export const GET = route(async (req) => {
   const q = new URL(req.url).searchParams;
   const from = q.get("from") ?? "";
   const to = q.get("to") ?? "";
@@ -17,6 +17,6 @@ export const GET = route((req) => {
   if (q.get("project_id")) { where.push("p.id = @project_id"); params.project_id = Number(q.get("project_id")); }
   if (q.get("billable") === "1") where.push("e.billable = 1 AND p.billable = 1");
   if (q.get("billable") === "0") where.push("(e.billable = 0 OR p.billable = 0)");
-  const entries = db().prepare(`${ENTRY_SELECT} WHERE ${where.join(" AND ")} ORDER BY e.date, e.start_time IS NULL, e.start_time, e.id`).all(params) as (ReportRow & Record<string, unknown>)[];
+  const entries = await db.all<ReportRow & Record<string, unknown>>(`${ENTRY_SELECT} WHERE ${where.join(" AND ")} ORDER BY e.date, e.start_time IS NULL, e.start_time, e.id`, params);
   return { entries, ...summarize(entries) };
 });

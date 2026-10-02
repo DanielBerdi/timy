@@ -5,13 +5,13 @@ import { projectUpdate } from "@/lib/schemas";
 export const PATCH = route<{ id: string }>(async (req, p) => {
   const id = idOf(p);
   const { sql, params } = setClause(projectUpdate.parse(await req.json()), ["name", "rate", "currency", "billable", "color", "archived"]);
-  if (!db().prepare(`UPDATE projects SET ${sql} WHERE id = @id`).run({ ...params, id }).changes) throw new HttpError(404, "Not found");
-  return db().prepare(`${PROJECT_SELECT} WHERE p.id = ?`).get(id);
+  if (!(await db.run(`UPDATE projects SET ${sql} WHERE id = @id`, { ...params, id } as never)).changes) throw new HttpError(404, "Not found");
+  return db.get(`${PROJECT_SELECT} WHERE p.id = ?`, [id]);
 });
 
-export const DELETE = route<{ id: string }>((_req, p) => {
+export const DELETE = route<{ id: string }>(async (_req, p) => {
   const id = idOf(p);
-  const used = db().prepare("SELECT COUNT(*) n FROM entries WHERE project_id = ?").get(id) as { n: number };
-  if (used.n) throw new HttpError(409, `This project has ${used.n} time entries. Archive it instead of deleting.`);
-  db().prepare("DELETE FROM projects WHERE id = ?").run(id);
+  const used = await db.get<{ n: number }>("SELECT COUNT(*) n FROM entries WHERE project_id = ?", [id]);
+  if (used?.n) throw new HttpError(409, `This project has ${used.n} time entries. Archive it instead of deleting.`);
+  await db.run("DELETE FROM projects WHERE id = ?", [id]);
 });
