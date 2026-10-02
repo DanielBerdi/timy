@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+:root { color-scheme: light; }
+body { @apply bg-slate-50 text-slate-900 antialiased; }
+
+@layer components {
+  .btn { @apply inline-flex items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50; }
+  .btn-primary { @apply border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700; }
+  .btn-danger { @apply border-red-200 text-red-600 hover:bg-red-50; }
+  .input { @apply w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500; }
+  .cell { @apply w-full rounded border border-transparent bg-transparent px-1.5 py-1 text-sm hover:border-slate-300 focus:border-indigo-500 focus:bg-white focus:outline-none; }
+  .card { @apply rounded-lg border border-slate-200 bg-white shadow-sm; }
+  .label { @apply mb-1 block text-xs font-medium text-slate-500; }
+}
