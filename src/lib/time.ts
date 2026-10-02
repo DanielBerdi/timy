@@ -104,3 +104,14 @@ export function formatDate(d: string, opts: Intl.DateTimeFormatOptions = { weekd
 export function money(amount: number, currency: string): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 2 }).format(amount);
 }
+
+/**
+ * Turns a drag between two minute-of-day positions into a 15-minute-snapped range.
+ * Works in either direction; the result is clamped to [lo, hi].
+ */
+export function rangeFromDrag(a: number, b: number, lo = 0, hi = 24 * 60, step = 15): { start: number; duration: number } {
+  const clamp = (v: number) => Math.max(lo, Math.min(hi, v));
+  const start = clamp(Math.floor(Math.min(a, b) / step) * step);
+  const end = clamp(Math.ceil(Math.max(a, b) / step) * step);
+  return { start, duration: Math.max(0, end - start) };
+}

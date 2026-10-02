@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { isAuthed, signOut } from "@/auth";
 import Nav from "@/components/Nav";
+import ThemeToggle from "@/components/ThemeToggle";
 import TimerBar from "@/components/TimerBar";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Nav />
           <div className="ml-auto flex items-center gap-3">
             <TimerBar />
+            <ThemeToggle />
             <form action={async () => { "use server"; await signOut({ redirectTo: "/login" }); }}>
               <button className="btn">Sign out</button>
             </form>

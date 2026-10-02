@@ -37,7 +37,8 @@ export default function Reports() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3"><h1 className="text-xl font-semibold">Reports</h1>
-        <button className="btn ml-auto" disabled={!data?.entries.length} onClick={exportCsv}>Export CSV</button></div>
+        <button className="btn ml-auto" disabled={!data?.entries.length} onClick={exportCsv}>Export CSV</button>
+        <a className={`btn btn-primary ${data?.entries.length ? "" : "pointer-events-none opacity-50"}`} href={`/api/reports/export?${qs}`} download>Export Excel</a></div>
       <div className="card flex flex-wrap items-end gap-3 p-3">
         <div><label className="label">From</label><input className="input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
         <div><label className="label">To</label><input className="input" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>

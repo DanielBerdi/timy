@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError, type Entry, type Project, useApi, useProjects } from "@/lib/client";
-import { addDays, addMonths, dow, endOfMonth, formatDate, formatDuration, minToTime, monthGrid, parseDuration, startOfMonth, startOfWeek, timeToMin, today, weekDays } from "@/lib/time";
+import { addDays, addMonths, dow, endOfMonth, formatDate, formatDuration, minToTime, monthGrid, parseDuration, rangeFromDrag, startOfMonth, startOfWeek, timeToMin, today, weekDays } from "@/lib/time";
 
 const H0 = 6, H1 = 22, HOUR_PX = 48;
 type Draft = { id?: number; date: string; start: string; duration: string; project: string; description: string; billable: boolean };
@@ -35,7 +35,7 @@ export default function Calendar() {
         <span className="text-sm font-medium text-slate-700">{title}</span>
         <div className="ml-auto flex gap-2">
           <div className="inline-flex overflow-hidden rounded-md border border-slate-300">
-            {(["week", "month"] as const).map((v) => <button key={v} className={`px-3 py-1.5 text-sm capitalize ${view === v ? "bg-indigo-600 text-white" : "bg-white hover:bg-slate-100"}`} onClick={() => setView(v)}>{v}</button>)}
+            {(["week", "month"] as const).map((v) => <button key={v} className={`px-3 py-1.5 text-sm capitalize ${view === v ? "bg-indigo-600 text-[#fff]" : "bg-white hover:bg-slate-100"}`} onClick={() => setView(v)}>{v}</button>)}
           </div>
           <button className="btn" onClick={() => setDraft(newDraft(today()))}>+ Add work</button>
           <button className="btn btn-primary" onClick={() => setImporting(true)}>Import from Google</button>
@@ -43,7 +43,7 @@ export default function Calendar() {
       </div>
 
       {view === "week"
-        ? <WeekGrid days={days} entries={entries ?? []} onSlot={(d, t) => setDraft(newDraft(d, t))} onEntry={(e) => setDraft(editDraft(e))} />
+        ? <WeekGrid days={days} entries={entries ?? []} onSlot={(d, t) => setDraft(newDraft(d, t))} onRange={(d, t, mins) => setDraft({ ...newDraft(d, t), duration: formatDuration(mins) })} onEntry={(e) => setDraft(editDraft(e))} />
         : <MonthGrid anchor={anchor} entries={entries ?? []} onDay={(d) => setDraft(newDraft(d))} onEntry={(e) => setDraft(editDraft(e))} />}
 
       {draft && <EntryModal draft={draft} projects={active} onClose={() => setDraft(null)} onSaved={() => { setDraft(null); reload(); }} />}
@@ -52,7 +52,18 @@ export default function Calendar() {
   );
 }
 
-function WeekGrid({ days, entries, onSlot, onEntry }: { days: string[]; entries: Entry[]; onSlot: (d: string, t: string) => void; onEntry: (e: Entry) => void }) {
+function WeekGrid({ days, entries, onSlot, onRange, onEntry }: { days: string[]; entries: Entry[]; onSlot: (d: string, t: string) => void; onRange: (d: string, t: string, mins: number) => void; onEntry: (e: Entry) => void }) {
+  const [drag, setDrag] = useState<{ date: string; a: number; b: number } | null>(null);
+  const minuteAt = (ev: React.PointerEvent<HTMLDivElement>) => {
+    const y = ev.clientY - ev.currentTarget.getBoundingClientRect().top;
+    return Math.max(H0 * 60, Math.min(H1 * 60, H0 * 60 + (y / HOUR_PX) * 60));
+  };
+  useEffect(() => {
+    if (!drag) return;
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setDrag(null);
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [drag]);
   const hours = Array.from({ length: H1 - H0 }, (_, i) => H0 + i);
   const untimed = entries.filter((e) => !e.start_time);
   return (
@@ -75,8 +86,25 @@ function WeekGrid({ days, entries, onSlot, onEntry }: { days: string[]; entries:
         </>}
         <div className="border-t border-slate-200">{hours.map((h) => <div key={h} className="pr-1 text-right text-[10px] text-slate-400" style={{ height: HOUR_PX }}>{String(h).padStart(2, "0")}:00</div>)}</div>
         {days.map((d) => (
-          <div key={d} className="relative border-l border-t border-slate-200" style={{ height: (H1 - H0) * HOUR_PX }}
+          <div key={d} className="relative select-none border-l border-t border-slate-200" style={{ height: (H1 - H0) * HOUR_PX }}
+            onPointerDown={(ev) => {
+              if (ev.pointerType === "touch" || ev.button !== 0) return;
+              ev.currentTarget.setPointerCapture(ev.pointerId);
+              const m = minuteAt(ev);
+              setDrag({ date: d, a: m, b: m });
+            }}
+            onPointerMove={(ev) => drag?.date === d && setDrag({ ...drag, b: minuteAt(ev) })}
+            onPointerCancel={() => setDrag(null)}
+            onPointerUp={(ev) => {
+              if (drag?.date !== d) return;
+              const b = minuteAt(ev);
+              setDrag(null);
+              if (Math.abs(b - drag.a) < 15) onSlot(d, minToTime(Math.floor(drag.a / 15) * 15));
+              else { const r = rangeFromDrag(drag.a, b, H0 * 60, H1 * 60); if (r.duration) onRange(d, minToTime(r.start), r.duration); }
+            }}
             onClick={(ev) => {
+              // touch taps (no pointer drag): open the quick-add at the tapped slot
+              if ((ev.nativeEvent as PointerEvent).pointerType !== "touch") return;
               const y = ev.clientY - ev.currentTarget.getBoundingClientRect().top;
               onSlot(d, minToTime(Math.floor((H0 * 60 + (y / HOUR_PX) * 60) / 15) * 15));
             }}>
@@ -86,14 +114,23 @@ function WeekGrid({ days, entries, onSlot, onEntry }: { days: string[]; entries:
               const h = Math.max(18, (e.duration_min / 60) * HOUR_PX);
               if (top + h < 0 || top > (H1 - H0) * HOUR_PX) return null;
               return (
-                <button key={e.id} className="absolute left-0.5 right-0.5 overflow-hidden rounded px-1 text-left text-[11px] leading-tight text-white shadow-sm"
+                <button key={e.id} className="absolute left-0.5 right-0.5 overflow-hidden rounded px-1 text-left text-[11px] leading-tight text-[#fff] shadow-sm"
                   style={{ top: Math.max(0, top), height: h, background: e.color, opacity: e.billable ? 1 : 0.65 }}
-                  onClick={(ev) => { ev.stopPropagation(); onEntry(e); }} title={`${e.customer_name} / ${e.project_name}\n${e.description}`}>
+                  onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => { ev.stopPropagation(); onEntry(e); }} title={`${e.customer_name} / ${e.project_name}\n${e.description}`}>
                   <div className="truncate font-medium">{e.project_name}</div>
                   <div className="truncate opacity-90">{e.description}</div>
                 </button>
               );
             })}
+            {drag?.date === d && Math.abs(drag.b - drag.a) >= 1 && (() => {
+              const r = rangeFromDrag(drag.a, drag.b, H0 * 60, H1 * 60);
+              return (
+                <div className="pointer-events-none absolute left-0.5 right-0.5 rounded border border-indigo-500 bg-indigo-400/30 px-1 text-[11px] font-medium text-indigo-900"
+                  style={{ top: ((r.start - H0 * 60) / 60) * HOUR_PX, height: Math.max(4, (r.duration / 60) * HOUR_PX) }}>
+                  {minToTime(r.start)}–{minToTime(r.start + r.duration)} · {formatDuration(r.duration)}
+                </div>
+              );
+            })()}
             {d === today() && <NowLine />}
           </div>
         ))}
@@ -129,7 +166,7 @@ function MonthGrid({ anchor, entries, onDay, onEntry }: { anchor: string; entrie
           const total = es.reduce((s, e) => s + e.duration_min, 0);
           return (
             <div key={d} className={`min-h-28 cursor-pointer border-l border-t border-slate-200 p-1 ${d.startsWith(month) ? "" : "bg-slate-50 text-slate-400"} ${dow(d) === 6 ? "bg-slate-50/60" : ""}`} onClick={() => onDay(d)}>
-              <div className="flex justify-between"><span className={d === today() ? "rounded-full bg-indigo-600 px-1.5 text-white" : ""}>{Number(d.slice(8))}</span>{total > 0 && <span className="text-slate-500">{formatDuration(total)}</span>}</div>
+              <div className="flex justify-between"><span className={d === today() ? "rounded-full bg-indigo-600 px-1.5 text-[#fff]" : ""}>{Number(d.slice(8))}</span>{total > 0 && <span className="text-slate-500">{formatDuration(total)}</span>}</div>
               <div className="mt-1 space-y-0.5">{es.slice(0, 4).map((e) => <Chip key={e.id} e={e} onClick={() => onEntry(e)} />)}{es.length > 4 && <div className="px-1 text-slate-400">+{es.length - 4} more</div>}</div>
             </div>
           );
@@ -141,7 +178,7 @@ function MonthGrid({ anchor, entries, onDay, onEntry }: { anchor: string; entrie
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/30 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="card max-h-[90vh] w-full max-w-md overflow-y-auto p-4" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">{title}</h2><button className="text-slate-400 hover:text-slate-700" onClick={onClose}>✕</button></div>
         {children}
