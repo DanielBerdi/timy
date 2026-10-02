@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 export type Currency = "USD" | "ILS";
-export type Customer = { id: number; name: string; email: string | null; notes: string | null; currency: Currency; rate: number | null; archived: number };
+export type Customer = { id: number; name: string; email: string | null; notes: string | null; currency: Currency; rate: number | null; color: string; archived: number };
 export type Project = {
   id: number; customer_id: number; customer_name: string; name: string; rate: number | null; currency: Currency | null;
   billable: number; color: string; archived: number; favorite: number; effective_rate: number | null; effective_currency: Currency;
@@ -10,7 +10,7 @@ export type Project = {
 export type Entry = {
   id: number; project_id: number; project_name: string; color: string; customer_id: number; customer_name: string;
   date: string; start_time: string | null; duration_min: number; description: string; billable: number;
-  gcal_event_id: string | null; timer_started_at: string | null; rate: number; currency: Currency; amount: number;
+  project_color: string; gcal_event_id: string | null; timer_started_at: string | null; rate: number; currency: Currency; amount: number;
 };
 
 export class ApiError extends Error {

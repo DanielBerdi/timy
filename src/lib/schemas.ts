@@ -13,8 +13,9 @@ const customerShape = z.object({
   notes: z.string().max(5000).nullish(),
   currency,
   rate,
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
 });
-export const customerCreate = customerShape.extend({ currency: currency.default("USD"), rate: rate.default(null) });
+export const customerCreate = customerShape.extend({ currency: currency.default("USD"), rate: rate.default(null), color: customerShape.shape.color.optional() });
 export const customerUpdate = customerShape.partial().extend({ archived: z.boolean().optional() });
 
 const projectShape = z.object({

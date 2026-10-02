@@ -43,3 +43,20 @@ thead th { padding-left: 0.625rem; padding-right: 0.625rem; }
   .card { @apply rounded-lg border border-slate-200 bg-white shadow-sm; }
   .label { @apply mb-1 block text-xs font-medium text-slate-500; }
 }
+
+/* ---- Responsive: on phones, table rows become stacked cards (labels come from data-label) ---- */
+@media (max-width: 767px) {
+  .rtable, .rtable tbody, .rtable tfoot, .rtable tr, .rtable td { display: block; }
+  .rtable thead { display: none; }
+  .rtable tr.rrow {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem 0.5rem;
+    padding: 0.625rem 0.5rem; border-bottom: 1px solid var(--color-slate-200);
+  }
+  .rtable td { width: auto !important; min-width: 0 !important; padding: 0 !important; text-align: left !important; }
+  .rtable td[data-label]::before { content: attr(data-label); display: block; padding-left: 0.375rem; font-size: 10px; color: var(--color-slate-400); }
+  .rtable td[data-span="2"] { grid-column: span 2; }
+  .rtable td > .cell, .rtable td > .input { border-color: var(--color-slate-200); }
+  /* 16px inputs: stops mobile browsers zooming the page when a field gets focus */
+  .input, .cell { font-size: 16px; }
+  .btn { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+}

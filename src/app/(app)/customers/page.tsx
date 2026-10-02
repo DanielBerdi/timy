@@ -29,13 +29,13 @@ export default function Customers() {
         <button className="btn btn-primary" disabled={!name.trim()}>Add</button>
       </form>
       <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="rtable w-full text-sm">
           <thead className="border-b border-slate-200 text-left text-xs text-slate-500">
-            <tr><th className="p-2">Name</th><th className="p-2">Email</th><th className="p-2">Currency</th><th className="p-2">Rate / hr</th><th className="p-2">Notes</th><th className="p-2" /></tr>
+            <tr><th className="w-12 p-2">Color</th><th className="p-2">Name</th><th className="p-2">Email</th><th className="p-2">Currency</th><th className="p-2">Rate / hr</th><th className="p-2">Notes</th><th className="p-2" /></tr>
           </thead>
           <tbody>
             {data?.map((c) => <Row key={c.id} c={c} patch={patch} del={(id) => run(() => api(`/api/customers/${id}`, "DELETE"))} />)}
-            {data?.length === 0 && <tr><td colSpan={6} className="p-4 text-center text-slate-400">No customers yet.</td></tr>}
+            {data?.length === 0 && <tr><td colSpan={7} className="p-4 text-center text-slate-400">No customers yet.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -48,13 +48,14 @@ function Row({ c, patch, del }: { c: Customer; patch: (id: number, b: object) =>
     <input className="cell" defaultValue={c[k] ?? ""} onBlur={(e) => { if (e.target.value !== (c[k] ?? "") && (k !== "name" || e.target.value.trim())) patch(c.id, { [k]: e.target.value }); }} />
   );
   return (
-    <tr className={`border-b border-slate-100 ${c.archived ? "opacity-50" : ""}`}>
-      <td className="p-1">{text("name")}</td>
-      <td className="p-1">{text("email")}</td>
-      <td className="p-1"><select className="cell" value={c.currency} onChange={(e) => patch(c.id, { currency: e.target.value })}><option>USD</option><option>ILS</option></select></td>
-      <td className="w-28 p-1"><input className="cell" type="number" min="0" step="any" defaultValue={c.rate ?? ""} onBlur={(e) => { const v = e.target.value === "" ? null : Number(e.target.value); if (v !== c.rate) patch(c.id, { rate: v }); }} /></td>
-      <td className="p-1">{text("notes")}</td>
-      <td className="whitespace-nowrap p-1 text-right">
+    <tr className={`rrow border-b border-slate-100 ${c.archived ? "opacity-50" : ""}`}>
+      <td data-label="Color" className="p-1"><input type="color" className="h-7 w-10 cursor-pointer rounded" title="Color used for this customer everywhere" defaultValue={c.color} onBlur={(e) => e.target.value !== c.color && patch(c.id, { color: e.target.value })} /></td>
+      <td data-label="Name" data-span="2" className="p-1">{text("name")}</td>
+      <td data-label="Email" data-span="2" className="p-1">{text("email")}</td>
+      <td data-label="Currency" className="p-1"><select className="cell" value={c.currency} onChange={(e) => patch(c.id, { currency: e.target.value })}><option>USD</option><option>ILS</option></select></td>
+      <td data-label="Rate / hr" className="w-28 p-1"><input className="cell" type="number" min="0" step="any" defaultValue={c.rate ?? ""} onBlur={(e) => { const v = e.target.value === "" ? null : Number(e.target.value); if (v !== c.rate) patch(c.id, { rate: v }); }} /></td>
+      <td data-label="Notes" data-span="2" className="p-1">{text("notes")}</td>
+      <td data-span="2" className="whitespace-nowrap p-1 text-right">
         <button className="btn" onClick={() => patch(c.id, { archived: !c.archived })}>{c.archived ? "Restore" : "Archive"}</button>{" "}
         <button className="btn btn-danger" onClick={() => confirm(`Delete ${c.name}?`) && del(c.id)}>Delete</button>
       </td>

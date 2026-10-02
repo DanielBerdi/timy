@@ -80,7 +80,7 @@ export default function Reports() {
           <Breakdown title="By day" rows={data.byDay} fmt={(k) => formatDate(k, { weekday: "short", day: "numeric", month: "short" })} />
         </> : (
           <div className="card overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rtable w-full text-sm">
               <thead className="border-b border-slate-200 text-left text-xs text-slate-500">
                 <tr><th className="p-2">Date</th><th className="p-2">Customer</th><th className="p-2">Project</th><th className="p-2">Description</th><th className="p-2">Start</th><th className="p-2">End</th><th className="p-2">Duration</th><th className="p-2">Bill</th><th className="p-2 text-right">Rate</th><th className="p-2 text-right">Amount</th><th /></tr>
               </thead>

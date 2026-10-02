@@ -20,10 +20,10 @@ export default function EntryRow({ e, projects, patch, del, detailed, onError }:
   const customers = [...new Map(projects.map((p) => [p.customer_id, p.customer_name])).entries()];
 
   return (
-    <tr className="border-b border-slate-100 hover:bg-slate-50/60">
-      <td className="w-36 p-1"><input key={e.date} className="cell" type="date" defaultValue={e.date} onBlur={(ev) => ev.target.value && ev.target.value !== e.date && patch(e.id, { date: ev.target.value })} /></td>
-      {detailed && <td className="w-36 p-2 text-slate-600">{e.customer_name}</td>}
-      <td className={detailed ? "w-48 p-1" : "w-64 p-1"}>
+    <tr className="rrow border-b border-slate-100 hover:bg-slate-50/60">
+      <td data-label="Date" className="w-36 p-1"><input key={e.date} className="cell" type="date" defaultValue={e.date} onBlur={(ev) => ev.target.value && ev.target.value !== e.date && patch(e.id, { date: ev.target.value })} /></td>
+      {detailed && <td data-label="Customer" className="w-36 p-2 text-slate-600">{e.customer_name}</td>}
+      <td data-label="Project" data-span={detailed ? "2" : undefined} className={detailed ? "w-48 p-1" : "w-64 p-1"}>
         <select className="cell" value={e.project_id} onChange={(ev) => patch(e.id, { project_id: Number(ev.target.value) })} style={{ borderLeft: `3px solid ${e.color}` }}>
           {!inList && <option value={e.project_id}>{detailed ? e.project_name : `${e.customer_name} / ${e.project_name}`}</option>}
           {detailed
@@ -33,9 +33,9 @@ export default function EntryRow({ e, projects, patch, del, detailed, onError }:
             : projects.map((p) => <option key={p.id} value={p.id}>{projectLabel(p)}</option>)}
         </select>
       </td>
-      <td className="min-w-64 p-1"><input key={e.description} className="cell" defaultValue={e.description} placeholder="Description" onBlur={(ev) => ev.target.value !== e.description && patch(e.id, { description: ev.target.value })} /></td>
-      <td className="w-20 p-1"><TimeInput value={e.start_time ?? ""} onCommit={(v) => patch(e.id, { start_time: v || null })} /></td>
-      <td className="w-20 p-1">
+      <td data-label="Description" data-span="2" className="min-w-64 p-1"><input key={e.description} className="cell" defaultValue={e.description} placeholder="Description" onBlur={(ev) => ev.target.value !== e.description && patch(e.id, { description: ev.target.value })} /></td>
+      <td data-label="Start" className="w-20 p-1"><TimeInput value={e.start_time ?? ""} onCommit={(v) => patch(e.id, { start_time: v || null })} /></td>
+      <td data-label="End" className="w-20 p-1">
         {running || !e.start_time ? <span className="px-1.5 text-slate-300">—</span> : (
           <TimeInput value={endTime(e.start_time, e.duration_min)} onCommit={(v) => {
             if (!v) return false;
@@ -45,7 +45,7 @@ export default function EntryRow({ e, projects, patch, del, detailed, onError }:
           }} />
         )}
       </td>
-      <td className="w-20 p-1">
+      <td data-label="Duration" className="w-20 p-1">
         {running ? <span className="px-1.5 text-indigo-600">running…</span> : (
           <input key={e.duration_min} className="cell font-mono tabular-nums" defaultValue={formatDuration(e.duration_min)}
             onKeyDown={(ev) => ev.key === "Enter" && (ev.target as HTMLInputElement).blur()}
@@ -57,10 +57,10 @@ export default function EntryRow({ e, projects, patch, del, detailed, onError }:
             }} />
         )}
       </td>
-      <td className="w-10 p-1 text-center"><input type="checkbox" checked={!!e.billable} onChange={(ev) => patch(e.id, { billable: ev.target.checked })} title="Billable" /></td>
-      {detailed && <td className="w-24 p-2 text-right tabular-nums text-slate-600">{e.rate ? money(e.rate, e.currency) : "—"}</td>}
-      <td className="w-28 p-2 text-right tabular-nums text-slate-600">{e.amount ? money(e.amount, e.currency) : "—"}</td>
-      <td className="w-8 p-1"><button className="text-slate-400 hover:text-red-600" title="Delete" onClick={del}>✕</button></td>
+      <td data-label="Billable" className="w-10 p-1 text-center"><input type="checkbox" checked={!!e.billable} onChange={(ev) => patch(e.id, { billable: ev.target.checked })} title="Billable" /></td>
+      {detailed && <td data-label="Rate" className="w-24 p-2 text-right tabular-nums text-slate-600">{e.rate ? money(e.rate, e.currency) : "—"}</td>}
+      <td data-label="Amount" className="w-28 p-2 text-right tabular-nums text-slate-600">{e.amount ? money(e.amount, e.currency) : "—"}</td>
+      <td className="w-8 p-1 text-right"><button className="px-2 py-1 text-slate-400 hover:text-red-600" title="Delete" onClick={del}>✕</button></td>
     </tr>
   );
 }

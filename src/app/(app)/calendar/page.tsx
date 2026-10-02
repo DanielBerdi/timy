@@ -9,11 +9,23 @@ type Draft = { id?: number; date: string; start: string; end: string; duration: 
 type GEvent = { id: string; title: string; date: string; start_time: string; duration_min: number; imported: boolean };
 
 export default function Calendar() {
-  const [view, setView] = useState<"week" | "month">("week");
+  const [view, setView] = useState<"day" | "week" | "month">("week");
+  useEffect(() => { if (window.matchMedia("(max-width: 767px)").matches) setView("day"); }, []);
   const [anchor, setAnchor] = useState(today());
-  const days = view === "week" ? weekDays(anchor) : monthGrid(anchor).flat();
+  const days = view === "day" ? [anchor] : view === "week" ? weekDays(anchor) : monthGrid(anchor).flat();
   const from = days[0], to = days[days.length - 1];
-  const { data: entries, reload } = useApi<Entry[]>(`/api/entries?from=${from}&to=${to}`);
+  const { data: allEntries, reload } = useApi<Entry[]>(`/api/entries?from=${from}&to=${to}`);
+  const [hidden, setHidden] = useState<Set<number>>(new Set());
+  const entries = useMemo(() => (allEntries ?? []).filter((e) => !hidden.has(e.customer_id)), [allEntries, hidden]);
+  const legend = useMemo(() => {
+    const m = new Map<number, { id: number; name: string; color: string; minutes: number }>();
+    for (const e of allEntries ?? []) {
+      const x = m.get(e.customer_id) ?? { id: e.customer_id, name: e.customer_name, color: e.color, minutes: 0 };
+      x.minutes += e.duration_min;
+      m.set(e.customer_id, x);
+    }
+    return [...m.values()].sort((a, b) => b.minutes - a.minutes);
+  }, [allEntries]);
   const { data: projects } = useProjects();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [importing, setImporting] = useState(false);
@@ -21,8 +33,8 @@ export default function Calendar() {
 
   useEffect(() => { window.addEventListener("entries-changed", reload); return () => window.removeEventListener("entries-changed", reload); }, [reload]);
 
-  const step = (n: number) => setAnchor(view === "week" ? addDays(anchor, 7 * n) : addMonths(anchor, n));
-  const title = view === "week" ? `${formatDate(from)} – ${formatDate(to)}` : formatDate(startOfMonth(anchor), { month: "long", year: "numeric" });
+  const step = (n: number) => setAnchor(view === "day" ? addDays(anchor, n) : view === "week" ? addDays(anchor, 7 * n) : addMonths(anchor, n));
+  const title = view === "day" ? formatDate(anchor, { weekday: "long", day: "numeric", month: "short" }) : view === "week" ? `${formatDate(from)} – ${formatDate(to)}` : formatDate(startOfMonth(anchor), { month: "long", year: "numeric" });
   const newDraft = (date: string, start = "09:00"): Draft => ({ date, start, end: endTime(start, 60), duration: "1:00", project: active.some((p) => String(p.id) === lastProject()) ? lastProject() : "", description: "", billable: true });
   const editDraft = (e: Entry): Draft => ({ id: e.id, date: e.date, start: e.start_time ?? "", end: e.start_time ? endTime(e.start_time, e.duration_min) : "", duration: formatDuration(e.duration_min), project: String(e.project_id), description: e.description, billable: !!e.billable });
 
@@ -34,18 +46,35 @@ export default function Calendar() {
         <button className="btn" onClick={() => setAnchor(today())}>Today</button>
         <button className="btn" onClick={() => step(1)}>→</button>
         <span className="text-sm font-medium text-slate-700">{title}</span>
-        <div className="ml-auto flex gap-2">
+        <div className="flex flex-wrap gap-2 md:ml-auto">
           <div className="inline-flex overflow-hidden rounded-md border border-slate-300">
-            {(["week", "month"] as const).map((v) => <button key={v} className={`px-3 py-1.5 text-sm capitalize ${view === v ? "bg-indigo-600 text-[#fff]" : "bg-white hover:bg-slate-100"}`} onClick={() => setView(v)}>{v}</button>)}
+            {(["day", "week", "month"] as const).map((v) => <button key={v} className={`px-3 py-1.5 text-sm capitalize ${view === v ? "bg-indigo-600 text-[#fff]" : "bg-white hover:bg-slate-100"}`} onClick={() => setView(v)}>{v}</button>)}
           </div>
           <button className="btn" onClick={() => setDraft(newDraft(today()))}>+ Add work</button>
           <button className="btn btn-primary" onClick={() => setImporting(true)}>Import from Google</button>
         </div>
       </div>
 
-      {view === "week"
-        ? <WeekGrid days={days} entries={entries ?? []} onSlot={(d, t) => setDraft(newDraft(d, t))} onRange={(d, t, mins) => setDraft({ ...newDraft(d, t), end: endTime(t, mins), duration: formatDuration(mins) })} onEntry={(e) => setDraft(editDraft(e))} />
-        : <MonthGrid anchor={anchor} entries={entries ?? []} onDay={(d) => setDraft(newDraft(d))} onEntry={(e) => setDraft(editDraft(e))} />}
+      {legend.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-sm" aria-label="Customer legend">
+          <span className="text-xs text-slate-500">Customers (click to hide / show):</span>
+          {legend.map((c) => {
+            const off = hidden.has(c.id);
+            return (
+              <button key={c.id} onClick={() => setHidden((h) => { const n = new Set(h); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n; })}
+                className={`inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1 hover:bg-slate-100 ${off ? "opacity-40 line-through" : ""}`}>
+                <span className="h-3 w-3 rounded-full" style={{ background: c.color }} />
+                <span className="font-medium">{c.name}</span>
+                <span className="text-xs text-slate-500">{formatDuration(c.minutes)} h</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {view !== "month"
+        ? <WeekGrid days={days} entries={entries} onSlot={(d, t) => setDraft(newDraft(d, t))} onRange={(d, t, mins) => setDraft({ ...newDraft(d, t), end: endTime(t, mins), duration: formatDuration(mins) })} onEntry={(e) => setDraft(editDraft(e))} />
+        : <MonthGrid anchor={anchor} entries={entries} onDay={(d) => setDraft(newDraft(d))} onEntry={(e) => setDraft(editDraft(e))} />}
 
       {draft && <EntryModal draft={draft} projects={active} onClose={() => setDraft(null)} onSaved={() => { setDraft(null); reload(); }} />}
       {importing && <ImportPanel from={from} to={to} projects={active} onClose={() => setImporting(false)} onImported={reload} />}
@@ -70,8 +99,8 @@ function WeekGrid({ days, entries, onSlot, onRange, onEntry }: { days: string[];
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => { if (scroller.current) scroller.current.scrollTop = (FOCUS_HOUR - H0) * HOUR_PX; }, [days[0]]);
   return (
-    <div ref={scroller} className="card h-[calc(100vh-180px)] min-h-[420px] overflow-auto">
-      <div className="grid min-w-[800px]" style={{ gridTemplateColumns: "48px repeat(7, 1fr)" }}>
+    <div ref={scroller} className="card h-[calc(100dvh-340px)] min-h-[360px] overflow-auto md:h-[calc(100vh-180px)] md:min-h-[420px]">
+      <div className={`grid ${days.length > 1 ? "min-w-[800px]" : ""}`} style={{ gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))` }}>
         <div className="sticky top-0 z-20 bg-white" />
         {days.map((d) => (
           <div key={d} className={`sticky top-0 z-20 border-l border-slate-200 bg-white p-1 text-center text-xs font-medium ${d === today() ? "text-indigo-600" : "text-slate-600"}`}>
@@ -140,8 +169,9 @@ function WeekGrid({ days, entries, onSlot, onRange, onEntry }: { days: string[];
                     }}
                     onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => { ev.stopPropagation(); onEntry(e); }}
                     title={`${e.customer_name} / ${e.project_name}\n${e.start_time}–${endTime(e.start_time!, e.duration_min)}\n${e.description}`}>
-                    <div className="truncate font-medium">{e.project_name}{h < 34 && e.description ? ` · ${e.description}` : ""}</div>
-                    {h >= 34 && <div className="truncate opacity-90">{e.description}</div>}
+                    <div className="truncate font-semibold">{e.customer_name}{h < 34 ? ` · ${e.description || e.project_name}` : ""}</div>
+                    {h >= 34 && <div className="truncate opacity-95">{e.project_name}</div>}
+                    {h >= 52 && e.description && <div className="truncate opacity-80">{e.description}</div>}
                   </button>
                 );
               });
@@ -174,7 +204,7 @@ function Chip({ e, onClick }: { e: Entry; onClick: () => void }) {
   return (
     <button className="flex w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[11px] hover:bg-slate-100" onClick={(ev) => { ev.stopPropagation(); onClick(); }}>
       <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: e.color }} />
-      <span className="truncate">{formatDuration(e.duration_min)} {e.project_name}{e.description ? ` – ${e.description}` : ""}</span>
+      <span className="truncate">{formatDuration(e.duration_min)} {e.customer_name} · {e.description || e.project_name}</span>
     </button>
   );
 }

@@ -1,3 +1,4 @@
+import { paletteColor } from "./palette.ts";
 import { createClient, type Client, type InValue, type Transaction } from "@libsql/client";
 
 const SCHEMA = `
@@ -8,6 +9,7 @@ CREATE TABLE IF NOT EXISTS customers (
   notes TEXT,
   currency TEXT NOT NULL DEFAULT 'USD' CHECK (currency IN ('USD','ILS')),
   rate REAL,                       -- default hourly rate for the customer's projects
+  color TEXT NOT NULL DEFAULT '#4f46e5',
   archived INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -72,6 +74,12 @@ const g = globalThis as unknown as { __db?: { client: Client; ready: Promise<voi
 async function migrate(client: Client) {
   const cols = (await client.execute("PRAGMA table_info(projects)")).rows.map((r) => String(r[1]));
   if (!cols.includes("favorite")) await client.execute("ALTER TABLE projects ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0");
+  const ccols = (await client.execute("PRAGMA table_info(customers)")).rows.map((r) => String(r[1]));
+  if (!ccols.includes("color")) {
+    await client.execute("ALTER TABLE customers ADD COLUMN color TEXT NOT NULL DEFAULT '#4f46e5'");
+    const ids = (await client.execute("SELECT id FROM customers ORDER BY id")).rows.map((r) => Number(r[0]));
+    for (const [i, id] of ids.entries()) await client.execute({ sql: "UPDATE customers SET color = ? WHERE id = ?", args: [paletteColor(i), id] });
+  }
 }
 
 function conn() {
@@ -123,8 +131,8 @@ export async function setSetting(key: string, value: string) {
  * a project rate overrides the customer rate; currency follows the level the rate came from.
  */
 export const ENTRY_SELECT = `
-SELECT e.id, e.project_id, p.name AS project_name, p.color, c.id AS customer_id, c.name AS customer_name,
-       e.date, e.start_time, e.duration_min, e.description, e.billable, e.gcal_event_id, e.timer_started_at,
+SELECT e.id, e.project_id, p.name AS project_name, c.id AS customer_id, c.name AS customer_name,
+       c.color AS color, p.color AS project_color, e.date, e.start_time, e.duration_min, e.description, e.billable, e.gcal_event_id, e.timer_started_at,
        COALESCE(p.rate, c.rate, 0) AS rate,
        CASE WHEN p.rate IS NOT NULL THEN COALESCE(p.currency, c.currency) ELSE c.currency END AS currency,
        CASE WHEN e.billable = 1 AND p.billable = 1 THEN ROUND(e.duration_min / 60.0 * COALESCE(p.rate, c.rate, 0), 2) ELSE 0 END AS amount

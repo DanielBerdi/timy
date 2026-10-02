@@ -35,7 +35,7 @@ export default function TimerBar() {
 
   if (running?.timer_started_at) {
     return (
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex w-full flex-wrap items-center gap-2 text-sm md:w-auto">
         <span className="inline-block h-2 w-2 rounded-full" style={{ background: running.color }} />
         <span className="max-w-40 truncate">{running.customer_name} / {running.project_name}</span>
         <span className="font-mono tabular-nums">{elapsed(running.timer_started_at)}</span>
@@ -44,9 +44,9 @@ export default function TimerBar() {
     );
   }
   return (
-    <div className="flex items-center gap-2" title={err}>
-      <input className="input w-40" placeholder="What are you doing?" value={desc} onChange={(e) => setDesc(e.target.value)} />
-      <select className="input w-48" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+    <div className="flex w-full items-center gap-2 md:w-auto" title={err}>
+      <input className="input min-w-0 flex-1 md:w-40 md:flex-none" placeholder="What are you doing?" value={desc} onChange={(e) => setDesc(e.target.value)} />
+      <select className="input min-w-0 flex-1 md:w-48 md:flex-none" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
         <option value="">Project…</option>
         {projects?.filter((p) => !p.archived).map((p) => <option key={p.id} value={p.id}>{projectLabel(p)}</option>)}
       </select>

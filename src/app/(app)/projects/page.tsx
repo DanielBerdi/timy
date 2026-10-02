@@ -36,12 +36,12 @@ export default function Projects() {
         <button className="btn btn-primary" disabled={!name.trim() || !customerId}>Add</button>
       </form>
       <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="rtable w-full text-sm">
           <thead className="border-b border-slate-200 text-left text-xs text-slate-500">
-            <tr><th className="w-8 p-2" title="Favorites are listed first everywhere" /><th className="p-2">Customer</th><th className="p-2">Project</th><th className="p-2">Color</th><th className="p-2">Rate override</th><th className="p-2">Effective</th><th className="p-2">Billable</th><th className="p-2" /></tr>
+            <tr><th className="w-8 p-2" title="Favorites are listed first everywhere" /><th className="p-2">Customer</th><th className="p-2">Project</th><th className="p-2">Rate override</th><th className="p-2">Effective</th><th className="p-2">Billable</th><th className="p-2" /></tr>
           </thead>
           <tbody>{rows.map((p) => <Row key={p.id} p={p} patch={patch} del={() => run(() => api(`/api/projects/${p.id}`, "DELETE"))} />)}
-            {rows.length === 0 && <tr><td colSpan={8} className="p-4 text-center text-slate-400">No projects.</td></tr>}</tbody>
+            {rows.length === 0 && <tr><td colSpan={7} className="p-4 text-center text-slate-400">No projects.</td></tr>}</tbody>
         </table>
       </div>
       <p className="text-xs text-slate-500">Leave the override empty to use the customer&apos;s rate and currency. ★ Favorite projects are listed first in every dropdown.</p>
@@ -51,15 +51,14 @@ export default function Projects() {
 
 function Row({ p, patch, del }: { p: Project; patch: (id: number, b: object) => void; del: () => void }) {
   return (
-    <tr className={`border-b border-slate-100 ${p.archived ? "opacity-50" : ""}`}>
+    <tr className={`rrow border-b border-slate-100 ${p.archived ? "opacity-50" : ""}`}>
       <td className="w-8 p-1 text-center">
         <button className={`text-lg leading-none ${p.favorite ? "text-amber-400" : "text-slate-300 hover:text-amber-400"}`} title={p.favorite ? "Remove from favorites" : "Add to favorites"} aria-pressed={!!p.favorite}
           onClick={() => patch(p.id, { favorite: !p.favorite })}>{p.favorite ? "★" : "☆"}</button>
       </td>
-      <td className="p-2 text-slate-600">{p.customer_name}</td>
-      <td className="p-1"><input className="cell" defaultValue={p.name} onBlur={(e) => { if (e.target.value.trim() && e.target.value !== p.name) patch(p.id, { name: e.target.value }); }} /></td>
-      <td className="p-1"><input type="color" className="h-7 w-10 cursor-pointer" defaultValue={p.color} onBlur={(e) => e.target.value !== p.color && patch(p.id, { color: e.target.value })} /></td>
-      <td className="p-1">
+      <td data-label="Customer" className="p-2 text-slate-600">{p.customer_name}</td>
+      <td data-label="Project" className="p-1"><input className="cell" defaultValue={p.name} onBlur={(e) => { if (e.target.value.trim() && e.target.value !== p.name) patch(p.id, { name: e.target.value }); }} /></td>
+      <td data-label="Rate override" className="p-1">
         <div className="flex gap-1">
           <input className="cell w-24" type="number" min="0" step="any" placeholder="—" defaultValue={p.rate ?? ""}
             onBlur={(e) => { const v = e.target.value === "" ? null : Number(e.target.value); if (v !== p.rate) patch(p.id, v === null ? { rate: null, currency: null } : { rate: v, currency: p.currency ?? p.effective_currency }); }} />
@@ -68,9 +67,9 @@ function Row({ p, patch, del }: { p: Project; patch: (id: number, b: object) => 
           )}
         </div>
       </td>
-      <td className="p-2 text-slate-600">{p.effective_rate != null ? `${money(p.effective_rate, p.effective_currency)}/h` : "no rate"}</td>
-      <td className="p-2"><input type="checkbox" checked={!!p.billable} onChange={(e) => patch(p.id, { billable: e.target.checked })} /></td>
-      <td className="whitespace-nowrap p-1 text-right">
+      <td data-label="Effective" className="p-2 text-slate-600">{p.effective_rate != null ? `${money(p.effective_rate, p.effective_currency)}/h` : "no rate"}</td>
+      <td data-label="Billable" className="p-2"><input type="checkbox" checked={!!p.billable} onChange={(e) => patch(p.id, { billable: e.target.checked })} /></td>
+      <td data-span="2" className="whitespace-nowrap p-1 text-right">
         <button className="btn" onClick={() => patch(p.id, { archived: !p.archived })}>{p.archived ? "Restore" : "Archive"}</button>{" "}
         <button className="btn btn-danger" onClick={() => confirm(`Delete ${p.name}?`) && del()}>Delete</button>
       </td>

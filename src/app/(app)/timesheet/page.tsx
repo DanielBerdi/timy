@@ -73,7 +73,7 @@ export default function Timesheet() {
       {(error || err) && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{error || err}</p>}
 
       <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="rtable w-full text-sm">
           <thead className="border-b border-slate-200 text-left text-xs text-slate-500">
             <tr><th className="p-2">Date</th><th className="p-2">Project</th><th className="p-2">Description</th><th className="p-2">Start</th><th className="p-2">End</th><th className="p-2">Duration</th><th className="p-2">Bill</th><th className="p-2 text-right">Amount</th><th /></tr>
           </thead>
@@ -155,14 +155,14 @@ function NewRow({ projects, defaultDate, onAdd }: { projects: Project[]; default
   }
   const key = (e: React.KeyboardEvent) => e.key === "Enter" && submit();
   return (
-    <tr className="bg-indigo-50/40">
-      <td className="p-1"><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} onKeyDown={key} /></td>
-      <td className="p-1"><select className="input" value={project} onChange={(e) => setProject(e.target.value)}><option value="">Project…</option>{projects.map((p) => <option key={p.id} value={p.id}>{projectLabel(p)}</option>)}</select></td>
-      <td className="p-1"><input className="input" placeholder="Description" value={desc} onChange={(e) => setDesc(e.target.value)} onKeyDown={key} /></td>
-      <td className="p-1"><TimeInput className="input" value={start} onCommit={changeStart} /></td>
-      <td className="p-1"><TimeInput className="input" value={end} onCommit={changeEnd} /></td>
-      <td className="p-1"><input className="input w-20 font-mono tabular-nums" placeholder="0:00" value={dur} onChange={(e) => changeDur(e.target.value)} onKeyDown={key} /></td>
-      <td colSpan={3} className="p-1">
+    <tr className="rrow bg-indigo-50/40">
+      <td data-label="Date" className="p-1"><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} onKeyDown={key} /></td>
+      <td data-label="Project" className="p-1"><select className="input" value={project} onChange={(e) => setProject(e.target.value)}><option value="">Project…</option>{projects.map((p) => <option key={p.id} value={p.id}>{projectLabel(p)}</option>)}</select></td>
+      <td data-label="Description" data-span="2" className="p-1"><input className="input" placeholder="Description" value={desc} onChange={(e) => setDesc(e.target.value)} onKeyDown={key} /></td>
+      <td data-label="Start" className="p-1"><TimeInput className="input" value={start} onCommit={changeStart} /></td>
+      <td data-label="End" className="p-1"><TimeInput className="input" value={end} onCommit={changeEnd} /></td>
+      <td data-label="Duration" className="p-1"><input className="input w-20 font-mono tabular-nums" placeholder="0:00" value={dur} onChange={(e) => changeDur(e.target.value)} onKeyDown={key} /></td>
+      <td colSpan={3} data-span="2" className="p-1">
         <div className="flex items-center gap-2"><button className="btn btn-primary" disabled={!valid} onClick={submit}>Add</button>{hint && <span className="text-xs text-red-600">{hint}</span>}</div>
       </td>
     </tr>
