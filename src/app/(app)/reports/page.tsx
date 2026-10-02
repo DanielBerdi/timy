@@ -82,11 +82,11 @@ export default function Reports() {
           <div className="card overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b border-slate-200 text-left text-xs text-slate-500">
-                <tr><th className="p-2">Date</th><th className="p-2">Customer</th><th className="p-2">Project</th><th className="p-2">Description</th><th className="p-2">Start</th><th className="p-2">End</th><th className="p-2">Duration</th><th className="p-2">$</th><th className="p-2 text-right">Rate</th><th className="p-2 text-right">Amount</th><th /></tr>
+                <tr><th className="p-2">Date</th><th className="p-2">Customer</th><th className="p-2">Project</th><th className="p-2">Description</th><th className="p-2">Start</th><th className="p-2">End</th><th className="p-2">Duration</th><th className="p-2">Bill</th><th className="p-2 text-right">Rate</th><th className="p-2 text-right">Amount</th><th /></tr>
               </thead>
               <tbody>
                 {data.entries.map((e) => (
-                  <EntryRow key={`${e.id}:${e.project_id}:${e.date}:${e.start_time}:${e.duration_min}:${e.description}:${e.billable}`} e={e} detailed projects={allProjects}
+                  <EntryRow key={e.id} e={e} detailed projects={allProjects}
                     onError={setErr}
                     patch={(id, body) => save(() => api(`/api/entries/${id}`, "PATCH", body))}
                     del={() => confirm("Delete this entry?") && save(() => api(`/api/entries/${e.id}`, "DELETE"))} />

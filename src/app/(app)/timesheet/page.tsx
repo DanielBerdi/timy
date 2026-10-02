@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import EntryRow from "@/components/EntryRow";
-import { api, type Entry, type Project, totalsByCurrency, useApi, useProjects } from "@/lib/client";
+import TimeInput from "@/components/TimeInput";
+import { api, lastProject, rememberProject, type Entry, type Project, totalsByCurrency, useApi, useProjects } from "@/lib/client";
 import { durationBetween, addDays, addMonths, endOfMonth, formatDate, formatDuration, money, parseDuration, startOfMonth, startOfWeek, today } from "@/lib/time";
 
 type Mode = "week" | "month" | "custom";
@@ -74,7 +75,7 @@ export default function Timesheet() {
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="border-b border-slate-200 text-left text-xs text-slate-500">
-            <tr><th className="p-2">Date</th><th className="p-2">Project</th><th className="p-2">Description</th><th className="p-2">Start</th><th className="p-2">End</th><th className="p-2">Duration</th><th className="p-2">$</th><th className="p-2 text-right">Amount</th><th /></tr>
+            <tr><th className="p-2">Date</th><th className="p-2">Project</th><th className="p-2">Description</th><th className="p-2">Start</th><th className="p-2">End</th><th className="p-2">Duration</th><th className="p-2">Bill</th><th className="p-2 text-right">Amount</th><th /></tr>
           </thead>
           <tbody>
             {Array.from({ length: validRange ? dayDiff(from, to) + 1 : 0 }, (_, i) => addDays(from, i)).map((d) => {
@@ -83,7 +84,7 @@ export default function Timesheet() {
               return (
                 <DayGroup key={d} date={d} minutes={perDay(d)} empty={!rows.length}>
                   {rows.map((e) => (
-                    <EntryRow key={`${e.id}:${e.project_id}:${e.date}:${e.start_time}:${e.duration_min}:${e.description}:${e.billable}`}
+                    <EntryRow key={e.id}
                       e={e} projects={active} patch={patch} onError={setErr} del={() => run(() => api(`/api/entries/${e.id}`, "DELETE"))} />
                   ))}
                 </DayGroup>
@@ -117,11 +118,13 @@ function NewRow({ projects, defaultDate, onAdd }: { projects: Project[]; default
   const [end, setEnd] = useState("");
   const [dur, setDur] = useState("");
   useEffect(() => setDate(defaultDate), [defaultDate]);
+  useEffect(() => { const l = lastProject(); if (l && projects.some((p) => String(p.id) === l)) setProject((cur) => cur || l); }, [projects]);
   const fromTo = start && end ? durationBetween(start, end) : null;
   const minutes = dur.trim() ? parseDuration(dur) : fromTo;
   const valid = !!project && minutes !== null && minutes <= 1440;
   function submit() {
     if (!valid) return;
+    rememberProject(project);
     onAdd({ project_id: Number(project), date, start_time: start || null, duration_min: minutes, description: desc });
     setDesc(""); setDur(""); setStart(""); setEnd("");
   }
@@ -131,8 +134,8 @@ function NewRow({ projects, defaultDate, onAdd }: { projects: Project[]; default
       <td className="p-1"><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} onKeyDown={key} /></td>
       <td className="p-1"><select className="input" value={project} onChange={(e) => setProject(e.target.value)}><option value="">Project…</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.customer_name} / {p.name}</option>)}</select></td>
       <td className="p-1"><input className="input" placeholder="Description" value={desc} onChange={(e) => setDesc(e.target.value)} onKeyDown={key} /></td>
-      <td className="p-1"><input className="input" type="time" value={start} onChange={(e) => setStart(e.target.value)} onKeyDown={key} /></td>
-      <td className="p-1"><input className="input" type="time" value={end} onChange={(e) => setEnd(e.target.value)} onKeyDown={key} /></td>
+      <td className="p-1"><TimeInput className="input" value={start} onCommit={setStart} /></td>
+      <td className="p-1"><TimeInput className="input" value={end} onCommit={setEnd} /></td>
       <td className="p-1"><input className="input font-mono" placeholder={fromTo ? formatDuration(fromTo) : "1:30 / 1.5"} value={dur} onChange={(e) => setDur(e.target.value)} onKeyDown={key} /></td>
       <td colSpan={3} className="p-1"><button className="btn btn-primary" disabled={!valid} onClick={submit}>Add</button></td>
     </tr>

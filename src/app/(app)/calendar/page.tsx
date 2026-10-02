@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, ApiError, type Entry, type Project, useApi, useProjects } from "@/lib/client";
+import TimeInput from "@/components/TimeInput";
+import { api, ApiError, lastProject, rememberProject, type Entry, type Project, useApi, useProjects } from "@/lib/client";
 import { addDays, addMonths, dow, durationBetween, endTime, endOfMonth, formatDate, formatDuration, layoutOverlaps, minToTime, monthGrid, parseDuration, rangeFromDrag, startOfMonth, startOfWeek, timeToMin, today, weekDays } from "@/lib/time";
 
 const H0 = 0, H1 = 24, HOUR_PX = 48, FOCUS_HOUR = 9.5; // full day; initial scroll puts ~10:00–20:00 in view
@@ -22,7 +23,7 @@ export default function Calendar() {
 
   const step = (n: number) => setAnchor(view === "week" ? addDays(anchor, 7 * n) : addMonths(anchor, n));
   const title = view === "week" ? `${formatDate(from)} – ${formatDate(to)}` : formatDate(startOfMonth(anchor), { month: "long", year: "numeric" });
-  const newDraft = (date: string, start = "09:00"): Draft => ({ date, start, end: endTime(start, 60), duration: "1:00", project: "", description: "", billable: true });
+  const newDraft = (date: string, start = "09:00"): Draft => ({ date, start, end: endTime(start, 60), duration: "1:00", project: active.some((p) => String(p.id) === lastProject()) ? lastProject() : "", description: "", billable: true });
   const editDraft = (e: Entry): Draft => ({ id: e.id, date: e.date, start: e.start_time ?? "", end: e.start_time ? endTime(e.start_time, e.duration_min) : "", duration: formatDuration(e.duration_min), project: String(e.project_id), description: e.description, billable: !!e.billable });
 
   return (
@@ -95,7 +96,17 @@ function WeekGrid({ days, entries, onSlot, onRange, onEntry }: { days: string[];
               const m = minuteAt(ev);
               setDrag({ date: d, a: m, b: m });
             }}
-            onPointerMove={(ev) => drag?.date === d && setDrag({ ...drag, b: minuteAt(ev) })}
+            onPointerMove={(ev) => {
+              if (drag?.date !== d) return;
+              // auto-scroll while dragging near the top/bottom edge of the scroll area
+              const sc = scroller.current;
+              if (sc) {
+                const r = sc.getBoundingClientRect();
+                if (ev.clientY > r.bottom - 40) sc.scrollTop += 14;
+                else if (ev.clientY < r.top + 70) sc.scrollTop -= 14;
+              }
+              setDrag({ ...drag, b: minuteAt(ev) });
+            }}
             onPointerCancel={() => setDrag(null)}
             onPointerUp={(ev) => {
               if (drag?.date !== d) return;
@@ -208,7 +219,7 @@ function EntryModal({ draft, projects, onClose, onSaved }: { draft: Draft; proje
   async function save() {
     if (!d.project || minutes === null || minutes > 1440) return setErr("Choose a project and a valid duration (e.g. 1:30, 1.5, 45m).");
     const body = { project_id: Number(d.project), date: d.date, start_time: d.start || null, duration_min: minutes, description: d.description, billable: d.billable };
-    try { await (d.id ? api(`/api/entries/${d.id}`, "PATCH", body) : api("/api/entries", "POST", body)); onSaved(); } catch (e) { setErr((e as Error).message); }
+    try { rememberProject(d.project); await (d.id ? api(`/api/entries/${d.id}`, "PATCH", body) : api("/api/entries", "POST", body)); onSaved(); } catch (e) { setErr((e as Error).message); }
   }
   async function del() {
     if (!confirm("Delete this entry?")) return;
@@ -226,10 +237,10 @@ function EntryModal({ draft, projects, onClose, onSaved }: { draft: Draft; proje
         <div><label className="label">Description</label><input className="input" value={d.description} onChange={(e) => set("description", e.target.value)} /></div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <div><label className="label">Date</label><input className="input" type="date" value={d.date} onChange={(e) => set("date", e.target.value)} /></div>
-          <div><label className="label">From</label><input className="input" type="time" value={d.start}
-            onChange={(e) => { const v = e.target.value; setD((x) => ({ ...x, start: v, end: v && minutes !== null ? endTime(v, minutes) : x.end })); }} /></div>
-          <div><label className="label">To</label><input className="input" type="time" value={d.end}
-            onChange={(e) => { const v = e.target.value; setD((x) => { const m = x.start && v ? durationBetween(x.start, v) : null; return { ...x, end: v, duration: m !== null ? formatDuration(m) : x.duration }; }); }} /></div>
+          <div><label className="label">From</label><TimeInput className="input" value={d.start}
+            onCommit={(v) => setD((x) => ({ ...x, start: v, end: v && minutes !== null ? endTime(v, minutes) : x.end }))} /></div>
+          <div><label className="label">To</label><TimeInput className="input" value={d.end}
+            onCommit={(v) => { const m = d.start && v ? durationBetween(d.start, v) : null; if (v && m === null) return false; setD((x) => ({ ...x, end: v, duration: m !== null ? formatDuration(m) : x.duration })); }} /></div>
           <div><label className="label">Duration</label><input className="input font-mono" value={d.duration}
             onChange={(e) => { const v = e.target.value; setD((x) => { const m = parseDuration(v); return { ...x, duration: v, end: x.start && m !== null && m <= 1440 ? endTime(x.start, m) : x.end }; }); }} /></div>
         </div>

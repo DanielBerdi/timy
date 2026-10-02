@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseDuration, formatDuration, startOfWeek, addDays, monthGrid, minToTime, rangeFromDrag, endTime, durationBetween, layoutOverlaps } from "../src/lib/time.ts";
+import { parseDuration, formatDuration, startOfWeek, addDays, monthGrid, minToTime, rangeFromDrag, endTime, durationBetween, layoutOverlaps, parseTime } from "../src/lib/time.ts";
 
 test("parseDuration", () => {
   assert.equal(parseDuration("1:30"), 90);
@@ -61,4 +61,16 @@ test("layoutOverlaps puts simultaneous meetings in columns", () => {
   assert.deepEqual(l.get(2), { col: 1, cols: 2 });
   assert.deepEqual(l.get(3), { col: 1, cols: 2 }); // reuses the column freed at 12:30
   assert.deepEqual(l.get(4), { col: 0, cols: 1 });
+});
+
+test("parseTime accepts typed 24h times", () => {
+  assert.equal(parseTime("9"), "09:00");
+  assert.equal(parseTime("930"), "09:30");
+  assert.equal(parseTime("9:30"), "09:30");
+  assert.equal(parseTime("21.15"), "21:15");
+  assert.equal(parseTime("1530"), "15:30");
+  assert.equal(parseTime(""), "");
+  assert.equal(parseTime("24:00"), null);
+  assert.equal(parseTime("9:75"), null);
+  assert.equal(parseTime("abc"), null);
 });

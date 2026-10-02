@@ -31,6 +31,9 @@
 }
 body { @apply bg-slate-50 text-slate-900 antialiased; }
 
+/* Table headers line up with the text inside editable cells (td padding + .cell padding). */
+thead th { padding-left: 0.625rem; padding-right: 0.625rem; }
+
 @layer components {
   .btn { @apply inline-flex items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50; }
   .btn-primary { @apply border-indigo-600 bg-indigo-600 text-[#fff] hover:bg-indigo-500; }

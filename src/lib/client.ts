@@ -51,3 +51,11 @@ export function totalsByCurrency(entries: Entry[]): Record<string, number> {
   for (const e of entries) if (e.amount) t[e.currency] = (t[e.currency] ?? 0) + e.amount;
   return t;
 }
+
+/** Remembers the last project used so new entries start with it (per-browser convenience). */
+export function lastProject(): string {
+  try { return localStorage.getItem("lastProject") ?? ""; } catch { return ""; }
+}
+export function rememberProject(id: string | number) {
+  try { localStorage.setItem("lastProject", String(id)); } catch {}
+}

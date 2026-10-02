@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { isAuthed, signOut } from "@/auth";
+import NoSSR from "@/components/NoSSR";
 import Nav from "@/components/Nav";
 import ThemeToggle from "@/components/ThemeToggle";
 import TimerBar from "@/components/TimerBar";
@@ -23,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl p-4">{children}</main>
+      <main className="mx-auto max-w-7xl p-4"><NoSSR>{children}</NoSSR></main>
     </>
   );
 }

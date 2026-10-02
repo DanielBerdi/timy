@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { api, type Entry, useProjects } from "@/lib/client";
+import { api, lastProject, rememberProject, type Entry, useProjects } from "@/lib/client";
 
 function elapsed(since: string) {
   const s = Math.max(0, Math.floor((Date.now() - Date.parse(since)) / 1000));
@@ -16,12 +16,13 @@ export default function TimerBar() {
   const [, tick] = useState(0);
   const [err, setErr] = useState("");
 
+  useEffect(() => { const l = lastProject(); if (l && projects?.some((p) => String(p.id) === l && !p.archived)) setProjectId((cur) => cur || l); }, [projects]);
   useEffect(() => { api<Entry | null>("/api/timer").then(setRunning).catch(() => {}); }, []);
   useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(t); }, []);
 
   async function start() {
     try {
-      setErr("");
+      setErr(""); rememberProject(projectId);
       setRunning(await api<Entry>("/api/timer/start", "POST", { project_id: Number(projectId), description: desc }));
       setDesc("");
     } catch (e) { setErr((e as Error).message); }

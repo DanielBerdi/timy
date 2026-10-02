@@ -148,3 +148,18 @@ export function layoutOverlaps<T extends { id: number; start: number; end: numbe
   flush();
   return out;
 }
+
+/**
+ * Forgiving 24h time parser for typed input: "9" -> 09:00, "930" -> 09:30, "9:30", "21.15".
+ * Returns "" for empty input and null when invalid.
+ */
+export function parseTime(input: string): string | null {
+  const s = input.trim();
+  if (!s) return "";
+  const m = s.match(/^(\d{1,2})(?:[:.]?(\d{2}))?$/) ?? s.match(/^(\d)(\d{2})$/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = m[2] === undefined ? 0 : Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}

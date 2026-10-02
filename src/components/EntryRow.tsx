@@ -1,4 +1,5 @@
 "use client";
+import TimeInput from "@/components/TimeInput";
 import type { Entry, Project } from "@/lib/client";
 import { durationBetween, endTime, formatDuration, money, parseDuration } from "@/lib/time";
 
@@ -20,7 +21,7 @@ export default function EntryRow({ e, projects, patch, del, detailed, onError }:
 
   return (
     <tr className="border-b border-slate-100 hover:bg-slate-50/60">
-      <td className="w-36 p-1"><input className="cell" type="date" defaultValue={e.date} onBlur={(ev) => ev.target.value && ev.target.value !== e.date && patch(e.id, { date: ev.target.value })} /></td>
+      <td className="w-36 p-1"><input key={e.date} className="cell" type="date" defaultValue={e.date} onBlur={(ev) => ev.target.value && ev.target.value !== e.date && patch(e.id, { date: ev.target.value })} /></td>
       {detailed && <td className="w-36 p-2 text-slate-600">{e.customer_name}</td>}
       <td className={detailed ? "w-48 p-1" : "w-64 p-1"}>
         <select className="cell" value={e.project_id} onChange={(ev) => patch(e.id, { project_id: Number(ev.target.value) })} style={{ borderLeft: `3px solid ${e.color}` }}>
@@ -32,22 +33,21 @@ export default function EntryRow({ e, projects, patch, del, detailed, onError }:
             : projects.map((p) => <option key={p.id} value={p.id}>{p.customer_name} / {p.name}</option>)}
         </select>
       </td>
-      <td className="p-1"><input className="cell" defaultValue={e.description} placeholder="Description" onBlur={(ev) => ev.target.value !== e.description && patch(e.id, { description: ev.target.value })} /></td>
-      <td className="w-24 p-1"><input className="cell" type="time" defaultValue={e.start_time ?? ""} onBlur={(ev) => (ev.target.value || null) !== e.start_time && patch(e.id, { start_time: ev.target.value || null })} /></td>
-      <td className="w-24 p-1">
+      <td className="min-w-64 p-1"><input key={e.description} className="cell" defaultValue={e.description} placeholder="Description" onBlur={(ev) => ev.target.value !== e.description && patch(e.id, { description: ev.target.value })} /></td>
+      <td className="w-20 p-1"><TimeInput value={e.start_time ?? ""} onCommit={(v) => patch(e.id, { start_time: v || null })} /></td>
+      <td className="w-20 p-1">
         {running || !e.start_time ? <span className="px-1.5 text-slate-300">—</span> : (
-          <input className="cell" type="time" defaultValue={endTime(e.start_time, e.duration_min)}
-            onBlur={(ev) => {
-              if (!ev.target.value || ev.target.value === endTime(e.start_time!, e.duration_min)) return;
-              const m = durationBetween(e.start_time!, ev.target.value);
-              if (m === null) { onError?.("End time must be after the start time."); ev.target.value = endTime(e.start_time!, e.duration_min); }
-              else patch(e.id, { duration_min: m });
-            }} />
+          <TimeInput value={endTime(e.start_time, e.duration_min)} onCommit={(v) => {
+            if (!v) return false;
+            const m = durationBetween(e.start_time!, v);
+            if (m === null) { onError?.("End time must be after the start time."); return false; }
+            patch(e.id, { duration_min: m });
+          }} />
         )}
       </td>
-      <td className="w-24 p-1">
+      <td className="w-20 p-1">
         {running ? <span className="px-1.5 text-indigo-600">running…</span> : (
-          <input className="cell font-mono tabular-nums" defaultValue={formatDuration(e.duration_min)}
+          <input key={e.duration_min} className="cell font-mono tabular-nums" defaultValue={formatDuration(e.duration_min)}
             onKeyDown={(ev) => ev.key === "Enter" && (ev.target as HTMLInputElement).blur()}
             onBlur={(ev) => {
               const m = parseDuration(ev.target.value);
