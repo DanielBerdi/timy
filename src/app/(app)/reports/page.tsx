@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { type Entry, useApi, useCustomers, useProjects } from "@/lib/client";
+import EntryRow from "@/components/EntryRow";
+import { api, type Entry, useApi, useCustomers, useProjects } from "@/lib/client";
 import { type Bucket, toCsv } from "@/lib/reports";
 import { addDays, addMonths, endOfMonth, formatDate, formatDuration, hours, money, startOfMonth, startOfWeek, today } from "@/lib/time";
 
@@ -12,11 +13,17 @@ export default function Reports() {
   const [customer, setCustomer] = useState("");
   const [project, setProject] = useState("");
   const [billable, setBillable] = useState("");
+  const [view, setView] = useState<"summary" | "detailed">("summary");
+  const [err, setErr] = useState("");
   const { data: customers } = useCustomers();
   const { data: projects } = useProjects();
   const qs = new URLSearchParams({ from, to, ...(customer && { customer_id: customer }), ...(project && { project_id: project }), ...(billable && { billable }) });
-  const { data, error, loading } = useApi<Report>(from && to ? `/api/reports?${qs}` : null);
+  const { data, error, loading, reload } = useApi<Report>(from && to ? `/api/reports?${qs}` : null);
 
+  const allProjects = (projects ?? []).filter((p) => !p.archived);
+  async function save(fn: () => Promise<unknown>) {
+    try { setErr(""); await fn(); await reload(); } catch (e) { setErr((e as Error).message); }
+  }
   const preset = (f: string, t: string) => { setFrom(f); setTo(t); };
   const m = today();
   const lastMonth = addMonths(m, -1);
@@ -54,7 +61,7 @@ export default function Reports() {
         <div><label className="label">Billing</label>
           <select className="input" value={billable} onChange={(e) => setBillable(e.target.value)}><option value="">All</option><option value="1">Billable</option><option value="0">Non-billable</option></select></div>
       </div>
-      {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+      {(error || err) && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{error || err}</p>}
       {loading && !data && <p className="text-sm text-slate-500">Loading…</p>}
       {data && <>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -62,9 +69,39 @@ export default function Reports() {
           <Stat label="Billable hours" value={`${formatDuration(data.total.billable_minutes)} h`} />
           <Stat label="Revenue" value={Object.keys(data.total.amounts).length ? Object.entries(data.total.amounts).map(([c, v]) => money(v, c)).join(" + ") : "—"} />
         </div>
-        <Breakdown title="By customer" rows={data.byCustomer} />
-        <Breakdown title="By project" rows={data.byProject} />
-        <Breakdown title="By day" rows={data.byDay} fmt={(k) => formatDate(k, { weekday: "short", day: "numeric", month: "short" })} />
+        <div className="inline-flex overflow-hidden rounded-md border border-slate-300">
+          {(["summary", "detailed"] as const).map((v) => (
+            <button key={v} className={`px-3 py-1.5 text-sm capitalize ${view === v ? "bg-indigo-600 text-[#fff]" : "bg-white hover:bg-slate-100"}`} onClick={() => setView(v)}>{v}</button>
+          ))}
+        </div>
+        {view === "summary" ? <>
+          <Breakdown title="By customer" rows={data.byCustomer} />
+          <Breakdown title="By project" rows={data.byProject} />
+          <Breakdown title="By day" rows={data.byDay} fmt={(k) => formatDate(k, { weekday: "short", day: "numeric", month: "short" })} />
+        </> : (
+          <div className="card overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-slate-200 text-left text-xs text-slate-500">
+                <tr><th className="p-2">Date</th><th className="p-2">Customer</th><th className="p-2">Project</th><th className="p-2">Description</th><th className="p-2">Start</th><th className="p-2">End</th><th className="p-2">Duration</th><th className="p-2">$</th><th className="p-2 text-right">Rate</th><th className="p-2 text-right">Amount</th><th /></tr>
+              </thead>
+              <tbody>
+                {data.entries.map((e) => (
+                  <EntryRow key={`${e.id}:${e.project_id}:${e.date}:${e.start_time}:${e.duration_min}:${e.description}:${e.billable}`} e={e} detailed projects={allProjects}
+                    onError={setErr}
+                    patch={(id, body) => save(() => api(`/api/entries/${id}`, "PATCH", body))}
+                    del={() => confirm("Delete this entry?") && save(() => api(`/api/entries/${e.id}`, "DELETE"))} />
+                ))}
+                {!data.entries.length && <tr><td colSpan={11} className="p-4 text-center text-slate-400">No entries in this range.</td></tr>}
+              </tbody>
+              {data.entries.length > 0 && (
+                <tfoot><tr className="border-t border-slate-200 font-semibold">
+                  <td className="p-2" colSpan={6}>Total</td><td className="p-2 font-mono">{formatDuration(data.total.minutes)}</td><td />
+                  <td /><td className="p-2 text-right tabular-nums">{Object.entries(data.total.amounts).map(([c, v]) => money(v, c)).join(" + ") || "—"}</td><td />
+                </tr></tfoot>
+              )}
+            </table>
+          </div>
+        )}
       </>}
     </div>
   );

@@ -115,3 +115,36 @@ export function rangeFromDrag(a: number, b: number, lo = 0, hi = 24 * 60, step =
   const end = clamp(Math.ceil(Math.max(a, b) / step) * step);
   return { start, duration: Math.max(0, end - start) };
 }
+
+/** End time (HH:MM) for a start + duration; wraps past midnight. */
+export function endTime(start: string, durationMin: number): string {
+  return minToTime((timeToMin(start) + durationMin) % (24 * 60));
+}
+
+/** Minutes from start to end on the same day, or null when end is not after start. */
+export function durationBetween(start: string, end: string): number | null {
+  const d = timeToMin(end) - timeToMin(start);
+  return d > 0 ? d : null;
+}
+
+/**
+ * Side-by-side columns for overlapping intervals. Transitively overlapping items form a
+ * cluster; each gets the first free column, and `cols` is the cluster's column count.
+ */
+export function layoutOverlaps<T extends { id: number; start: number; end: number }>(items: T[]): Map<number, { col: number; cols: number }> {
+  const sorted = [...items].sort((a, b) => a.start - b.start || b.end - a.end || a.id - b.id);
+  const out = new Map<number, { col: number; cols: number }>();
+  let cluster: { id: number; col: number }[] = [];
+  let colEnds: number[] = [];
+  let clusterEnd = -1;
+  const flush = () => { for (const c of cluster) out.set(c.id, { col: c.col, cols: colEnds.length }); cluster = []; colEnds = []; };
+  for (const it of sorted) {
+    if (cluster.length && it.start >= clusterEnd) flush();
+    let col = colEnds.findIndex((e) => e <= it.start);
+    if (col === -1) { col = colEnds.length; colEnds.push(it.end); } else colEnds[col] = it.end;
+    cluster.push({ id: it.id, col });
+    clusterEnd = Math.max(clusterEnd, it.end);
+  }
+  flush();
+  return out;
+}

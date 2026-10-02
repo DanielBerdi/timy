@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, type Entry, type Project, useApi, useProjects } from "@/lib/client";
-import { addDays, addMonths, dow, endOfMonth, formatDate, formatDuration, minToTime, monthGrid, parseDuration, rangeFromDrag, startOfMonth, startOfWeek, timeToMin, today, weekDays } from "@/lib/time";
+import { addDays, addMonths, dow, durationBetween, endTime, endOfMonth, formatDate, formatDuration, layoutOverlaps, minToTime, monthGrid, parseDuration, rangeFromDrag, startOfMonth, startOfWeek, timeToMin, today, weekDays } from "@/lib/time";
 
-const H0 = 6, H1 = 22, HOUR_PX = 48;
-type Draft = { id?: number; date: string; start: string; duration: string; project: string; description: string; billable: boolean };
+const H0 = 0, H1 = 24, HOUR_PX = 48, FOCUS_HOUR = 9.5; // full day; initial scroll puts ~10:00–20:00 in view
+type Draft = { id?: number; date: string; start: string; end: string; duration: string; project: string; description: string; billable: boolean };
 type GEvent = { id: string; title: string; date: string; start_time: string; duration_min: number; imported: boolean };
 
 export default function Calendar() {
@@ -22,8 +22,8 @@ export default function Calendar() {
 
   const step = (n: number) => setAnchor(view === "week" ? addDays(anchor, 7 * n) : addMonths(anchor, n));
   const title = view === "week" ? `${formatDate(from)} – ${formatDate(to)}` : formatDate(startOfMonth(anchor), { month: "long", year: "numeric" });
-  const newDraft = (date: string, start = "09:00"): Draft => ({ date, start, duration: "1:00", project: "", description: "", billable: true });
-  const editDraft = (e: Entry): Draft => ({ id: e.id, date: e.date, start: e.start_time ?? "", duration: formatDuration(e.duration_min), project: String(e.project_id), description: e.description, billable: !!e.billable });
+  const newDraft = (date: string, start = "09:00"): Draft => ({ date, start, end: endTime(start, 60), duration: "1:00", project: "", description: "", billable: true });
+  const editDraft = (e: Entry): Draft => ({ id: e.id, date: e.date, start: e.start_time ?? "", end: e.start_time ? endTime(e.start_time, e.duration_min) : "", duration: formatDuration(e.duration_min), project: String(e.project_id), description: e.description, billable: !!e.billable });
 
   return (
     <div className="space-y-3">
@@ -43,7 +43,7 @@ export default function Calendar() {
       </div>
 
       {view === "week"
-        ? <WeekGrid days={days} entries={entries ?? []} onSlot={(d, t) => setDraft(newDraft(d, t))} onRange={(d, t, mins) => setDraft({ ...newDraft(d, t), duration: formatDuration(mins) })} onEntry={(e) => setDraft(editDraft(e))} />
+        ? <WeekGrid days={days} entries={entries ?? []} onSlot={(d, t) => setDraft(newDraft(d, t))} onRange={(d, t, mins) => setDraft({ ...newDraft(d, t), end: endTime(t, mins), duration: formatDuration(mins) })} onEntry={(e) => setDraft(editDraft(e))} />
         : <MonthGrid anchor={anchor} entries={entries ?? []} onDay={(d) => setDraft(newDraft(d))} onEntry={(e) => setDraft(editDraft(e))} />}
 
       {draft && <EntryModal draft={draft} projects={active} onClose={() => setDraft(null)} onSaved={() => { setDraft(null); reload(); }} />}
@@ -66,12 +66,14 @@ function WeekGrid({ days, entries, onSlot, onRange, onEntry }: { days: string[];
   }, [drag]);
   const hours = Array.from({ length: H1 - H0 }, (_, i) => H0 + i);
   const untimed = entries.filter((e) => !e.start_time);
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (scroller.current) scroller.current.scrollTop = (FOCUS_HOUR - H0) * HOUR_PX; }, [days[0]]);
   return (
-    <div className="card overflow-x-auto">
+    <div ref={scroller} className="card max-h-[calc(100vh-190px)] min-h-[360px] overflow-auto">
       <div className="grid min-w-[800px]" style={{ gridTemplateColumns: "48px repeat(7, 1fr)" }}>
-        <div />
+        <div className="sticky top-0 z-20 bg-white" />
         {days.map((d) => (
-          <div key={d} className={`border-l border-slate-200 p-1 text-center text-xs font-medium ${d === today() ? "text-indigo-600" : "text-slate-600"}`}>
+          <div key={d} className={`sticky top-0 z-20 border-l border-slate-200 bg-white p-1 text-center text-xs font-medium ${d === today() ? "text-indigo-600" : "text-slate-600"}`}>
             {formatDate(d, { weekday: "short", day: "numeric" })}
             <span className="ml-1 text-slate-400">{formatDuration(entries.filter((e) => e.date === d).reduce((s, e) => s + e.duration_min, 0))}</span>
           </div>
@@ -109,19 +111,30 @@ function WeekGrid({ days, entries, onSlot, onRange, onEntry }: { days: string[];
               onSlot(d, minToTime(Math.floor((H0 * 60 + (y / HOUR_PX) * 60) / 15) * 15));
             }}>
             {hours.map((h) => <div key={h} className="border-b border-slate-100" style={{ height: HOUR_PX }} />)}
-            {entries.filter((e) => e.date === d && e.start_time).map((e) => {
-              const top = ((timeToMin(e.start_time!) - H0 * 60) / 60) * HOUR_PX;
-              const h = Math.max(18, (e.duration_min / 60) * HOUR_PX);
-              if (top + h < 0 || top > (H1 - H0) * HOUR_PX) return null;
-              return (
-                <button key={e.id} className="absolute left-0.5 right-0.5 overflow-hidden rounded px-1 text-left text-[11px] leading-tight text-[#fff] shadow-sm"
-                  style={{ top: Math.max(0, top), height: h, background: e.color, opacity: e.billable ? 1 : 0.65 }}
-                  onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => { ev.stopPropagation(); onEntry(e); }} title={`${e.customer_name} / ${e.project_name}\n${e.description}`}>
-                  <div className="truncate font-medium">{e.project_name}</div>
-                  <div className="truncate opacity-90">{e.description}</div>
-                </button>
-              );
-            })}
+            {(() => {
+              const timed = entries.filter((e) => e.date === d && e.start_time).map((e) => {
+                const start = timeToMin(e.start_time!);
+                return { e, id: e.id, start, end: Math.min(1440, start + e.duration_min), shown: Math.min(1440, start + Math.max(e.duration_min, 25)) };
+              });
+              const lay = layoutOverlaps(timed.map((t) => ({ id: t.id, start: t.start, end: t.shown })));
+              return timed.map(({ e, start, end }) => {
+                const { col, cols } = lay.get(e.id)!;
+                const h = Math.max(20, ((end - start) / 60) * HOUR_PX);
+                return (
+                  <button key={e.id} className="absolute overflow-hidden rounded border border-black/40 px-1 text-left text-[11px] leading-tight text-[#fff] shadow-sm ring-1 ring-white/30 hover:z-10 hover:brightness-110"
+                    style={{
+                      top: (start / 60) * HOUR_PX + 1, height: h - 2,
+                      left: `calc(${(col / cols) * 100}% + 2px)`, width: `calc(${100 / cols}% - 4px)`,
+                      background: e.color, opacity: e.billable ? 1 : 0.65,
+                    }}
+                    onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => { ev.stopPropagation(); onEntry(e); }}
+                    title={`${e.customer_name} / ${e.project_name}\n${e.start_time}–${endTime(e.start_time!, e.duration_min)}\n${e.description}`}>
+                    <div className="truncate font-medium">{e.project_name}{h < 34 && e.description ? ` · ${e.description}` : ""}</div>
+                    {h >= 34 && <div className="truncate opacity-90">{e.description}</div>}
+                  </button>
+                );
+              });
+            })()}
             {drag?.date === d && Math.abs(drag.b - drag.a) >= 1 && (() => {
               const r = rangeFromDrag(drag.a, drag.b, H0 * 60, H1 * 60);
               return (
@@ -179,7 +192,7 @@ function MonthGrid({ anchor, entries, onDay, onEntry }: { anchor: string; entrie
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="card max-h-[90vh] w-full max-w-md overflow-y-auto p-4" onClick={(e) => e.stopPropagation()}>
+      <div className="card max-h-[90vh] w-full max-w-lg overflow-y-auto p-4" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">{title}</h2><button className="text-slate-400 hover:text-slate-700" onClick={onClose}>✕</button></div>
         {children}
       </div>
@@ -211,10 +224,14 @@ function EntryModal({ draft, projects, onClose, onSaved }: { draft: Draft; proje
             {projects.map((p) => <option key={p.id} value={p.id}>{p.customer_name} / {p.name}</option>)}
           </select></div>
         <div><label className="label">Description</label><input className="input" value={d.description} onChange={(e) => set("description", e.target.value)} /></div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <div><label className="label">Date</label><input className="input" type="date" value={d.date} onChange={(e) => set("date", e.target.value)} /></div>
-          <div><label className="label">Start</label><input className="input" type="time" value={d.start} onChange={(e) => set("start", e.target.value)} /></div>
-          <div><label className="label">Duration</label><input className="input font-mono" value={d.duration} onChange={(e) => set("duration", e.target.value)} /></div>
+          <div><label className="label">From</label><input className="input" type="time" value={d.start}
+            onChange={(e) => { const v = e.target.value; setD((x) => ({ ...x, start: v, end: v && minutes !== null ? endTime(v, minutes) : x.end })); }} /></div>
+          <div><label className="label">To</label><input className="input" type="time" value={d.end}
+            onChange={(e) => { const v = e.target.value; setD((x) => { const m = x.start && v ? durationBetween(x.start, v) : null; return { ...x, end: v, duration: m !== null ? formatDuration(m) : x.duration }; }); }} /></div>
+          <div><label className="label">Duration</label><input className="input font-mono" value={d.duration}
+            onChange={(e) => { const v = e.target.value; setD((x) => { const m = parseDuration(v); return { ...x, duration: v, end: x.start && m !== null && m <= 1440 ? endTime(x.start, m) : x.end }; }); }} /></div>
         </div>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={d.billable} onChange={(e) => set("billable", e.target.checked)} /> Billable</label>
         {err && <p className="text-sm text-red-600">{err}</p>}
